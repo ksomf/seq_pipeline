@@ -1,0 +1,8 @@
+name: atac-pipeline-sailor
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3
+  - singularity
+  - curl

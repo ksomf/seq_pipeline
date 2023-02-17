@@ -1,0 +1,10 @@
+name: atac-pipeline-assemblies
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3
+  - agat
+  - samtools
+  - bedtools
+  - curl

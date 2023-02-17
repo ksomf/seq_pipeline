@@ -1,0 +1,13 @@
+name: atac-pipeline-base
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3
+  - numpy
+  - scipy
+  - pandas
+  - more-itertools
+  - snakemake
+  - tqdm
+  - flexbar
