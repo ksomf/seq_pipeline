@@ -1,4 +1,4 @@
-name: atac-pipeline-sailor
+name: seq-pipeline-sailor
 channels:
   - conda-forge
   - bioconda

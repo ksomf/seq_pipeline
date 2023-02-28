@@ -1,10 +1,8 @@
-name: seq-pipeline-assemblies
+name: seq-pipeline-bowtie2
 channels:
   - conda-forge
   - bioconda
 dependencies:
   - python=3
-  - agat
+  - bowtie2
   - samtools
-  - bedtools
-  - curl

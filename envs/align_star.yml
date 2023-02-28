@@ -1,4 +1,4 @@
-name: atac-pipeline-star
+name: seq-pipeline-star
 channels:
   - conda-forge
   - bioconda

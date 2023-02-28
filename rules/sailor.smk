@@ -3,8 +3,8 @@ rule get_sailor:
 	params:
 		url='https://s3-us-west-1.amazonaws.com/sailor-1.0.4/sailor-1.0.4'
 	conda: '../envs/sailor.yml'
-	shell: """
+	shell: '''
 		curl --location {params.url} --output {output}
 
 		chmod u+x {output}
-	"""
+	'''
