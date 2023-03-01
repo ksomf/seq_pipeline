@@ -1,0 +1,7 @@
+name: seq-pipeline-samtools
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3
+  - samtools

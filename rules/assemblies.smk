@@ -4,6 +4,7 @@ assembly2params = {
 	'hg38': { 'species'         :'homo_sapiens'
 	        , 'fasta'           :'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/405/GCF_000001405.26_GRCh38/GCF_000001405.26_GRCh38_genomic.fna.gz'
 	        , 'gff'             :'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/405/GCF_000001405.26_GRCh38/GCF_000001405.26_GRCh38_genomic.gff.gz'
+	        , 'chrom_report'    :'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/405/GCF_000001405.26_GRCh38/GCF_000001405.26_GRCh38_assembly_report.txt'
 	        , 'encode_blacklist':'https://www.encodeproject.org/files/ENCFF356LFX/@@download/ENCFF356LFX.bed.gz'
 	        , 'tss'             :'https://www.encodeproject.org/files/ENCFF493CCB/@@download/ENCFF493CCB.bed.gz'
 	        , 'promoters'       :'https://www.encodeproject.org/files/ENCFF140XLU/@@download/ENCFF140XLU.bed.gz'
@@ -22,6 +23,12 @@ rule download_assembly:
 rule download_gff:
 	output: os.path.join(config['reference_dir'],'{assembly}.gff'),
 	params: url=lambda w: assembly2params[w.assembly]['gff']
+	conda: '../envs/assemblies.yml'
+	shell: 'curl --location {params.url} | zcat > {output}'
+
+rule download_report:
+	output: os.path.join(config['reference_dir'],'{assembly}_assembly_report.txt'),
+	params: url=lambda w: assembly2params[w.assembly]['chrom_report']
 	conda: '../envs/assemblies.yml'
 	shell: 'curl --location {params.url} | zcat > {output}'
 
@@ -60,14 +67,17 @@ rule generate_gtf:
 		agat_convert_sp_gff2gtf.pl --gff {input} -o {output}
 		'''
 
-rule generate_chromosome_sizes:
-	input: os.path.join(config['reference_dir'],'{assembly}.fasta'),
-	output:
-		sizes=os.path.join(config['reference_dir'],'{assembly}_chromosome_sizes.tsv'),
-		fai=os.path.join(config['reference_dir'],'{assembly}.fasta.fai'),
-	params: url=lambda w: assembly2params[w.assembly]['chromosome_sizes']
+rule generate_faidx:
+	input: '{path}/{fa_name}.fasta',
+	output: temp(local('{path}/{fa_name}.fasta.fai')),
 	conda: '../envs/assemblies.yml'
-	shell: 'samtools faidx {input} && cut -f1,2 {input}.fai > {output.sizes}'
+	shell: 'samtools faidx {input}'
+
+rule generate_chromosome_sizes:
+	input:  os.path.join(config['reference_dir'],'{assembly}.fasta.fai'),
+	output: os.path.join(config['reference_dir'],'{assembly}_chromosome_sizes.tsv'),
+	conda: '../envs/assemblies.yml'
+	shell: 'cut -f1,2 {input} > {output}'
 
 rule generate_sorted_blacklist:
 	input:

@@ -68,10 +68,10 @@ rule star_sorted_bam:
 	input:
 		aligned_file=os.path.join(config['align_dir'], '{sample_id}.star_aligned.unsorted.Aligned.out.bam'),
 	output:
-		sorted_file=os.path.join(config['align_dir'], '{sample_id}.star_aligned.bam'),
+		sorted_file=os.path.join(config['align_dir'], '{sample_id}.star_aligned.unfiltered.bam'),
 	params:
 		work_dir=lambda wildcards, output: os.path.dirname(output['sorted_file']),
 	conda: '../envs/align_star.yml'
 	threads: 16
 	shell: 'samtools sort --output-fmt bam --threads {threads} -T {params.work_dir}/{wildcards.sample_id} -o {output.sorted_file} {input.aligned_file}'
-			
+
