@@ -28,16 +28,17 @@ rule star_generate_index:
 		overhang=100, #maxreadlength - 1 ideally
 	threads: workflow.cores
 	conda: '../envs/align_star.yml'
-	shell: '''
-		test -d {params.index_folder} && rm -r {params.index_folder}
+	shell: 
+		'''
+			test -d {params.index_folder} && rm -r {params.index_folder}
 
-		STAR --runThreadN       {threads}             \
-		     --runMode          genomeGenerate        \
-		     --genomeDir        {params.index_folder} \
-		     --genomeFastaFiles {input.fasta}         \
-		     --sjdbGTFfile      {input.gtf}           \
-		     --sjdbOverhang     {params.overhang}
-	'''
+			STAR --runThreadN       {threads}             \
+			     --runMode          genomeGenerate        \
+			     --genomeDir        {params.index_folder} \
+			     --genomeFastaFiles {input.fasta}         \
+			     --sjdbGTFfile      {input.gtf}           \
+			     --sjdbOverhang     {params.overhang}
+		'''
 
 rule star_align_pair_end:
 	input:
@@ -52,17 +53,18 @@ rule star_align_pair_end:
 		overhang=100, #maxreadlength - 1 ideally
 	threads: workflow.cores
 	conda: '../envs/align_star.yml'
-	shell: '''
-		mkdir -p {params.output_path}
+	shell:
+		'''
+			mkdir -p {params.output_path}
 
-		STAR --runThreadN        {threads}              \
-		     --genomeDir         {params.index_folder}  \
-		     --readFilesIn       {input.fastq}          \
-		     --readFilesCommand  zcat                   \
-		     --outFileNamePrefix {params.output_prefix} \
-		     --outSAMtype        BAM Unsorted           \
-		     --outSAMunmapped    Within
-	'''
+			STAR --runThreadN        {threads}              \
+			     --genomeDir         {params.index_folder}  \
+			     --readFilesIn       {input.fastq}          \
+			     --readFilesCommand  zcat                   \
+			     --outFileNamePrefix {params.output_prefix} \
+			     --outSAMtype        BAM Unsorted           \
+			     --outSAMunmapped    Within
+		'''
 
 rule star_sorted_bam:
 	input:

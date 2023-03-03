@@ -1,0 +1,8 @@
+name: seq-pipeline-macs2
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3
+  - MACS2
+
