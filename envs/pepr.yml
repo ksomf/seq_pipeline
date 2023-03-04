@@ -1,0 +1,8 @@
+name: seq-pipeline-pepr
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=2
+  - pepr
+

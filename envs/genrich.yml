@@ -1,8 +1,7 @@
-name: seq-pipeline-macs2
+name: seq-pipeline-genrich
 channels:
   - conda-forge
   - bioconda
 dependencies:
   - python=3
-  - MACS2
-  - idr
+  - genrich

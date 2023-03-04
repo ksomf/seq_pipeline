@@ -78,9 +78,16 @@ rule generate_chromosome_sizes:
 	conda: '../envs/assemblies.yml'
 	shell: 'cut -f1,2 {input} > {output}'
 
-rule generate_sorted_blacklist:
+rule generate_matching_names:
 	input:
 		blacklist=os.path.join(config['reference_dir'],'{assembly}_blacklist.unsorted.named_chromosomes.bed'),
+	output: os.path.join(config['reference_dir'],'{assembly}_blacklist.unsorted.bed'),
+	conda: '../envs/assemblies.yml'
+	shell: 'sed "s/^chr//g" {input} > {output}'
+
+rule generate_sorted_blacklist:
+	input:
+		blacklist=os.path.join(config['reference_dir'],'{assembly}_blacklist.unsorted.bed'),
 		sizes    =os.path.join(config['reference_dir'],'{assembly}_chromosome_sizes.tsv'),
 	output: os.path.join(config['reference_dir'],'{assembly}_blacklist.bed'),
 	conda: '../envs/assemblies.yml'

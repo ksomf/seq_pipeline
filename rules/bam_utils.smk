@@ -13,6 +13,13 @@ align_flags2flag = { 'read_is_mapped'                       : 1
 def create_align_flag(flags):
 	return sum([ align_flags2flag[f] for f in flags])
 
+rule sort_name_bam:
+	input:             '{path}/{bamfile}.bam'
+	output: temp(local('{path}/{bamfile}.sorted_by_name.bam'))
+	threads: 16
+	conda: '../envs/samtools.yml'
+	shell: 'samtools sort -@ {threads} -n -o {output} {input}'
+
 rule index_bam:
 	input:  '{path}/{bamfile}.bam'
 	output: '{path}/{bamfile}.bam.bai'
@@ -31,4 +38,4 @@ rule filter_bam:
 		pass_flag=create_align_flag(['read_mapped_as_part_of_pair']),
 		fail_flag=create_align_flag(['read_is_unmapped', 'mate_is_unmapped', 'not_primary_alignment', 'read_fails_platform_or_vendor_checks', 'read_is_pcr_or_optical_duplicate'])
 	conda: '../envs/samtools.yml'
-	shell: 'samtools view -q {phred_quality_cuttoff} -F {fail_flag} -f {pass_flag} -L {input.whitelist} -o {output} {input.bam[0]}'
+	shell: 'samtools view -q {params.phred_quality_cuttoff} -F {params.fail_flag} -f {params.pass_flag} -L {input.whitelist} -o {output} {input.sorted_file[0]}'
