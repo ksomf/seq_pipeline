@@ -20,6 +20,7 @@ metadata_input_only = metadata[ metadata['method']=='Input' ]
 condition2sample_ids = { g:df['sample_id'].to_list() for g, df in metadata_ip_only   .groupby(['condition']) }
 condition2input_ids  = { g:df['sample_id'].to_list() for g, df in metadata_input_only.groupby(['condition']) }
 conditions = list(set(metadata['condition']))
+print(condition2sample_ids)
 
 
 sample_ids = metadata['sample_id']
@@ -30,11 +31,13 @@ sample_ids_ip = metadata[ metadata['method']=='IP' ]['sample_id']
 
 
 wildcard_constraints:
-	sample_id  = '|'.join(sample_ids),
-	aligner    = '|'.join(['star','bowtie2']),
-	condition  = '|'.join(conditions),
-	condition1 = '|'.join(conditions),
-	condition2 = '|'.join(conditions),
+	sample_id   = '|'.join(sample_ids),
+	sample1_id  = '|'.join(sample_ids),
+	sample2_id  = '|'.join(sample_ids),
+	aligner     = '|'.join(['star','bowtie2']),
+	condition   = '|'.join(conditions),
+	condition1  = '|'.join(conditions),
+	condition2  = '|'.join(conditions),
 
 include: 'rules/assemblies.smk'
 include: 'rules/bam_utils.smk'
@@ -52,6 +55,9 @@ rule all:
 		diffbind_pepr=os.path.join(config["peakcalling_dir"],'pepr','MAVSvsd103-467_PePr_chip1_peaks.bed'),
 		genrich_mavs=os.path.join(config["peakcalling_dir"],'genrich','MAVS_peaks.narrowPeak'),
 		genrich_ds=os.path.join(config["peakcalling_dir"],'genrich','d103-467_peaks.narrowPeak'),
+
+rule dev:
+	input:os.path.join(config["peakcalling_dir"],'idr','MAVS_report.txt')
 
 		#aligned_bam=[os.path.join(config['align_dir'], f'{sample_id}.star_aligned.bam') for sample_id in sample_ids]
 
