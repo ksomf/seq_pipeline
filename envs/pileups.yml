@@ -8,3 +8,4 @@ dependencies:
   - r-ggthemes
   - r-tidyverse
   - bioconductor-genomicranges
+  - bioconductor-Rsamtools

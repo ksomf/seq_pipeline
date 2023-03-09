@@ -77,7 +77,7 @@ rule all:
 
 rule dev:
 	input:
-		plot_dir=directory(config['peakcalling_dir'],'analysis','plots'),
+		plot_dir=directory(os.path.join(config['peakcalling_dir'],'analysis','plots')),
 		#aligned_bam=[os.path.join(config['align_dir'], f'{sample_id}.star_aligned.bam') for sample_id in sample_ids]
 
 #TODO: Make the blacklist use the standard chromosome names by using the chrom report to map
