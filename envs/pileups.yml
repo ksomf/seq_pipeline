@@ -1,0 +1,10 @@
+name: seq-pipeline-pileups
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - r
+  - r-ggplot2
+  - r-ggthemes
+  - r-tidyverse
+  - bioconductor-genomicranges

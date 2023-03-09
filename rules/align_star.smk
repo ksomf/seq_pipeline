@@ -45,7 +45,8 @@ rule star_align_pair_end:
 		index=expand(os.path.join(config['reference_dir'],'{assembly}_star_index/{f}'), assembly=config['assembly'], f=star_index_files, allow_missing=True),
 		fastq=lambda w: sample_id2reads[w.sample_id]
 	output:
-		aligned_file=temp(local(os.path.join(config['align_dir'], '{sample_id}.star_aligned.unsorted.Aligned.out.bam')))
+		aligned_file=temp(local(os.path.join(config['align_dir'], '{sample_id}.star_aligned.unsorted.Aligned.out.bam'))),
+		log_file    =           os.path.join(config['align_dir'], '{sample_id}.star_aligned.unsorted.Log.final.out'),
 	params:
 		index_folder=lambda wildcards, input: os.path.dirname(input['index'][0]),
 		output_prefix=lambda wildcards, output: output['aligned_file'].replace('Aligned.out.bam',''),
