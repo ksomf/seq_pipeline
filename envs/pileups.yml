@@ -7,5 +7,6 @@ dependencies:
   - r-ggplot2
   - r-ggthemes
   - r-tidyverse
+  - r-furrr
   - bioconductor-genomicranges
   - bioconductor-Rsamtools
