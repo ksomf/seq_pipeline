@@ -13,20 +13,30 @@ defaults = { 'sra_dir'         : '01_sra_download'
 for k, v in defaults.items():
 	if k not in config:
 		config[k] = v
+need_to_download = config['metadata_files'] == 'srr'
+need_to_align    = need_to_download | (config['metadata_files'] == 'fastq')
+need_to_peakcall = config['pipeline'] == 'ripseq'
+
 
 metadata = pd.read_csv(config['metadata'], sep='\t')
 conditions = list(set(metadata['condition']))
-
 sample_ids = metadata['sample_id']
-sample_readlist = list(chain(metadata['R1'],metadata['R2']))
-sample_id2reads = dict(zip(metadata['sample_id'],zip(metadata['R1'],metadata['R2'])))
 ip_sample_id2input_sample_id = dict(zip(metadata['sample_id'],metadata['matching_input_control']))
-sample_ids_ip = metadata[ metadata['method']=='IP' ]['sample_id']
 
 metadata_ip_only    = metadata[ metadata['method']=='IP' ]
 metadata_input_only = metadata[ metadata['method']=='Input' ]
-condition2sample_ids = { g:df['sample_id'].to_list() for g, df in metadata_ip_only   .groupby(['condition']) }
+sample_ids_ip       = metadata_ip_only['sample_id']
+condition2sample_ids = { g:df['sample_id'].to_list() for g, df in metadata_ip_only.groupby(['condition']) }
 condition2input_ids  = { g:[ip_sample_id2input_sample_id[s] for s in condition2sample_ids[g]] for g in condition2sample_ids.keys() }
+
+sample_readlist = []
+sample_id2reads = {}
+sample_id2bam   = { s:os.path.join(config['align_dir'], f'{s}.{config["aligner"]}_aligned.bam') for s in sample_ids }
+if need_to_align:
+	sample_readlist = list(chain(metadata['R1'],metadata['R2']))
+	sample_id2reads = dict(zip(metadata['sample_id'],zip(metadata['R1'],metadata['R2'])))
+else:
+	sample_id2bam   = dict(zip(metadata['sample_id'],metadata['bam']))
 
 print('Conditin2samples')
 print(condition2sample_ids)
@@ -35,18 +45,14 @@ print(condition2input_ids)
 print('Sample_id2input_id')
 print(ip_sample_id2input_sample_id)
 
-need_to_download = config['metadata_files'] == 'srr'
-need_to_align    = need_to_download | (config['metadata_files'] == 'fastq')
-need_to_peakcall = config['pipeline'] == 'ripseq'
-
 multiqc_inputs = []
 #generate multiqc files
 if need_to_align:
 	multiqc_inputs += [ os.path.join(config['fastq_dir'], os.path.basename(f).replace('.fastq.gz','_fastqc.zip' ) ) for f in sample_readlist ]
-if need_to_align:
-	multiqc_inputs += [ os.path.join(config['align_dir'], f'{sample_id}.star_aligned.unsorted.Log.final.out') for sample_id in sample_ids ]
+	if config['aligner'] == 'star':
+		multiqc_inputs += [ os.path.join(config['align_dir'], f'{sample_id}.star_aligned.unsorted.Log.final.out') for sample_id in sample_ids ]
 if need_to_peakcall:
-	multiqc_inputs += [ os.path.join(config["peakcalling_dir"], f'{sample_id}_peaks.xls') for sample_id in sample_ids_ip ]
+	multiqc_inputs += [ os.path.join(config["peakcalling_dir"], f'{sample_id}_full_peaks.xls') for sample_id in sample_ids_ip ]
 
 wildcard_constraints:
 	sample_id   = '|'.join(sample_ids),
@@ -66,6 +72,8 @@ include: 'rules/macs2.smk'
 include: 'rules/pepr.smk'
 include: 'rules/thor.smk'
 include: 'rules/genrich.smk'
+include: 'rules/diffbind.smk'
+include: 'rules/multigps.smk'
 include: 'rules/sailor.smk'
 include: 'rules/pileups.smk'
 

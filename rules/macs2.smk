@@ -1,16 +1,22 @@
 from itertools import combinations
 
+
+macs2_type2pvalue = { 'relaxed':1e-3 #Suitable to get 'noisy' peaks for IDR
+                    , 'full':1 }
+wildcard_constraints:
+	peak_types = '|'.join(macs2_type2pvalue.keys())
+
 #NOTE(kim) for atac-seq
 # params.extsize=150
 #		               --nomodel                         \
 #		               --extsize   {params.extsize}      \
 rule macs2_peakcalling:
 	input:
-		ip_seq    =                   os.path.join(config['align_dir'],                                      '{sample_id}' + f'.{config["aligner"]}_aligned.bam'),
-		input_seq = lambda wildcards: os.path.join(config['align_dir'], ip_sample_id2input_sample_id[wildcards.sample_id]  + f'.{config["aligner"]}_aligned.bam'),
-	output: multiext(os.path.join(config["peakcalling_dir"], '{sample_id}'), '_peaks.narrowPeak', '_peaks.xls', '_summits.bed', '_treat_pileup.bdg', '_control_lambda.bdg')
+		ip_seq    = lambda wildcards: sample_id2bam[wildcards.sample_id],
+		input_seq = lambda wildcards: sample_id2bam[ip_sample_id2input_sample_id[wildcards.sample_id]],
+	output: multiext(os.path.join(config["peakcalling_dir"], '{sample_id}_{peak_types}'), '_peaks.narrowPeak', '_peaks.xls', '_summits.bed', '_treat_pileup.bdg', '_control_lambda.bdg')
 	params:
-		pvalue = 1e-3, #Relaxed to get 'noisy' peaks for IDR
+		pvalue = lambda wildcards: macs2_type2pvalue[wildcards.peak_types],
 		outdir = lambda wildcards, output: os.path.dirname(output[0]),
 		slocal = 2000, #Average fragment length ~1400
 		prefix = lambda wildcards, output: os.path.basename(output[0]).replace('_peaks.narrowPeak', ''),
@@ -32,7 +38,7 @@ rule macs2_peakcalling:
 	 '''
 
 rule pooled_bams:
-	input: [ os.path.join(config['align_dir'],f'{sample_id}.{config["aligner"]}_aligned.bam') for sample_id in ['{sample1_id}', '{sample2_id}'] ]
+	input: lambda wildcards: [ sample_id2bam[sample_id] for sample_id in [wildcards.sample1_id, wildcards.sample2_id] ]
 	output:
 		bams  =                [ os.path.join(config["peakcalling_dir"],'idr','pooled','{sample1_id}_{sample2_id}_pooled'+f'{n}.bam') for n in [1,2] ],
 		header=                  os.path.join(config["peakcalling_dir"],'idr','pooled','{sample1_id}_{sample2_id}_pooled.header'),
@@ -56,13 +62,13 @@ rule pooled_bams:
 	 '''
 
 rule pseudo_bams:
-	input: os.path.join(config['align_dir'],'{sample_id}' + f'.{config["aligner"]}_aligned.bam'),
+	input: lambda wildcards: sample_id2bam[wildcards.sample_id],
 	output:
 		bams  =                [ os.path.join(config["peakcalling_dir"],'idr','pseudo','{sample_id}_pseudo'+f'{n}.bam') for n in [1,2] ],
 		header=                  os.path.join(config["peakcalling_dir"],'idr','pseudo','{sample_id}_pseudo.header'),
 		splits=[ temporary(local(os.path.join(config["peakcalling_dir"],'idr','pseudo','{sample_id}_pseudo_bamsplits'+f'{n}'))) for n in ['00','01'] ],
 	params:
-		split_prefix=lambda wildcards, output: output.splits[0].replace('00','')
+		split_prefix=lambda wildcards, output: output.splits[0].replace('00',''),
 	conda: '../envs/samtools.yml'
 	shell:
 	 '''
@@ -80,13 +86,13 @@ use rule macs2_peakcalling as macs_peakcalling_pseudo with:
 	input:
 		ip_seq    =                   os.path.join(config["peakcalling_dir"],'idr','pseudo','{sample_id}_pseudo'+'{n}.bam'),
 		input_seq = lambda wildcards: os.path.join(config["peakcalling_dir"],'idr','pseudo',ip_sample_id2input_sample_id[wildcards.sample_id]+'_pseudo{n}.bam'),
-	output:                 multiext(os.path.join(config["peakcalling_dir"],'idr','{sample_id}_pseudo{n}'), '_peaks.narrowPeak', '_summits.bed', '_treat_pileup.bdg', '_control_lambda.bdg'),
+	output:                 multiext(os.path.join(config["peakcalling_dir"],'idr','{sample_id}_pseudo{n}_relaxed'), '_peaks.narrowPeak', '_summits.bed', '_treat_pileup.bdg', '_control_lambda.bdg'),
 
 use rule macs2_peakcalling as macs_peakcalling_pooled with:
 	input:
 		ip_seq    =                   os.path.join(config["peakcalling_dir"],'idr','pooled','{sample1_id}_{sample2_id}_pooled{n}.bam'),
 		input_seq = lambda wildcards: os.path.join(config["peakcalling_dir"],'idr','pooled',ip_sample_id2input_sample_id[wildcards.sample1_id]+'_'+ip_sample_id2input_sample_id[wildcards.sample2_id]+'_pooled{n}.bam'),
-	output:                 multiext(os.path.join(config["peakcalling_dir"],'idr','{sample1_id}_{sample2_id}_pooled{n}'), '_peaks.narrowPeak', '_summits.bed', '_treat_pileup.bdg', '_control_lambda.bdg'),
+	output:                 multiext(os.path.join(config["peakcalling_dir"],'idr','{sample1_id}_{sample2_id}_pooled{n}_relaxed'), '_peaks.narrowPeak', '_summits.bed', '_treat_pileup.bdg', '_control_lambda.bdg'),
 
 rule sort_narrow_peaks:
 	input:             os.path.join(config["peakcalling_dir"], '{file}_peaks.narrowPeak'),
@@ -94,10 +100,9 @@ rule sort_narrow_peaks:
 	conda: '../envs/macs2.yml'
 	shell: 'sort -k8,8nr {input} | head -n 100000 > {output}'
 
-#NOTE(KIM): IDR needs numpy.int deprecated in numpy 1.20, hence the numpy version used
 rule idr_peaks_true:
 	input:
-		peaks=lambda wildcards: [ os.path.join(config["peakcalling_dir"], f'{s}_peaks.sorted_head.narrowPeak') for s in [wildcards.sample1_id, wildcards.sample2_id] ],
+		peaks=lambda wildcards: [ os.path.join(config["peakcalling_dir"], f'{s}_relaxed_peaks.sorted_head.narrowPeak') for s in [wildcards.sample1_id, wildcards.sample2_id] ],
 	output:
 		idr_res=os.path.join(config["peakcalling_dir"],'idr','{condition}_{sample1_id}_{sample2_id}_true.tsv'),
 		idr_png=os.path.join(config["peakcalling_dir"],'idr','{condition}_{sample1_id}_{sample2_id}_true.png'),
@@ -116,7 +121,7 @@ rule idr_peaks_true:
 
 use rule idr_peaks_true as idr_peaks_pooled with:
 	input:
-		peaks=lambda wildcards: [ os.path.join(config["peakcalling_dir"], 'idr', '{sample1_id}_{sample2_id}_pooled'+f'{n}_peaks.sorted_head.narrowPeak') for n in [1,2] ],
+		peaks=lambda wildcards: [ os.path.join(config["peakcalling_dir"], 'idr', '{sample1_id}_{sample2_id}_pooled'+f'{n}_relaxed_peaks.sorted_head.narrowPeak') for n in [1,2] ],
 	output:
 		idr_res=os.path.join(config["peakcalling_dir"],'idr','{condition}_{sample1_id}_{sample2_id}_pooled.tsv'),
 		idr_png=os.path.join(config["peakcalling_dir"],'idr','{condition}_{sample1_id}_{sample2_id}_pooled.png'),
@@ -124,7 +129,7 @@ use rule idr_peaks_true as idr_peaks_pooled with:
 
 use rule idr_peaks_true as idr_peaks_pseudo with:
 	input:
-		peaks=lambda wildcards: [ os.path.join(config["peakcalling_dir"], 'idr', '{sample_id}_'+f'pseudo{n}_peaks.sorted_head.narrowPeak') for n in [1,2] ],
+		peaks=lambda wildcards: [ os.path.join(config["peakcalling_dir"], 'idr', '{sample_id}_'+f'pseudo{n}_relaxed_peaks.sorted_head.narrowPeak') for n in [1,2] ],
 	output:
 		idr_res=os.path.join(config["peakcalling_dir"],'idr','{condition}_{sample_id}_pseudo.tsv'),
 		idr_png=os.path.join(config["peakcalling_dir"],'idr','{condition}_{sample_id}_pseudo.png'),

@@ -26,26 +26,28 @@ LERP <- function(y1, y2, x){y1 + (y2-y1)*x}
 #genrich_cuttoff       <- 1e-5
 #idr_cuttoff           <- 0.01
 
-pepr_peaks_filename   <- snakemake@input[['pepr_peaks']]
-thor_peaks_filename   <- snakemake@input[['thor_peaks']]
-genrich_filenames     <- snakemake@input[['genrich_peaks']]
-genrich_conditions    <- snakemake@params[['genrich_conditions']]
-idr_filenames         <- snakemake@input[['idr_peaks']]
-idr_conditions        <- snakemake@params[['idr_conditions']]
-idr_elements          <- snakemake@params[['idr_elements']]
-bam_files             <- snakemake@input[['bam_files']]
-bam_index_files       <- snakemake@input[['bam_index_files']]
-sample_ids            <- snakemake@params[['sample_ids']]
-metadata_filename     <- snakemake@params[['metadata']]
-treatment_conditions  <- snakemake@params[['treatment_conditions']]
-control_condition     <- snakemake@params[['control_conditions']]
-gff_filename          <- snakemake@input[['gff']]
-output_dir            <- snakemake@output[['plot_dir']]
-threads               <- snakemake@threads
-pepr_cuttoff          <- snakemake@params[['pepr_cuttoff']]
-thor_cuttoff          <- snakemake@params[['thor_cuttoff']]
-genrich_cuttoff       <- snakemake@params[['genrich_cuttoff']]
-idr_cuttoff           <- snakemake@params[['idr_cuttoff']]
+pepr_peaks_filename     <- snakemake@input[['pepr_peaks']]
+thor_peaks_filename     <- snakemake@input[['thor_peaks']]
+diffbind_peaks_filename <- snakemake@input[['diffbind_peaks']]
+genrich_filenames       <- snakemake@input[['genrich_peaks']]
+genrich_conditions      <- snakemake@params[['genrich_conditions']]
+idr_filenames           <- snakemake@input[['idr_peaks']]
+idr_conditions          <- snakemake@params[['idr_conditions']]
+idr_elements            <- snakemake@params[['idr_elements']]
+bam_files               <- snakemake@input[['bam_files']]
+bam_index_files         <- snakemake@input[['bam_index_files']]
+sample_ids              <- snakemake@params[['sample_ids']]
+metadata_filename       <- snakemake@params[['metadata']]
+treatment_conditions    <- snakemake@params[['treatment_conditions']]
+control_condition       <- snakemake@params[['control_conditions']]
+gff_filename            <- snakemake@input[['gff']]
+output_dir              <- snakemake@output[['plot_dir']]
+threads                 <- snakemake@threads
+pepr_cuttoff            <- snakemake@params[['pepr_cuttoff']]
+thor_cuttoff            <- snakemake@params[['thor_cuttoff']]
+genrich_cuttoff         <- snakemake@params[['genrich_cuttoff']]
+idr_cuttoff             <- snakemake@params[['idr_cuttoff']]
+diffbind_cuttoff        <- snakemake@params[['diffbind_cuttoff']]
 
 ordered_conditions    <- c(treatment_conditions, control_condition)
 
@@ -127,7 +129,18 @@ thor_peaks <- map2( thor_peaks_filename, treatment_conditions, function(thor_fil
          , condition=treatment_condition )  
 }) %>% do.call('c',.)
 
-de_peaks        <- c(pepr_peaks, thor_peaks)
+x <- read_tsv( diffbind_peaks_filename, show_col_types=FALSE ) %>%
+    mutate( strand=ifelse(strand == '.', '*', strand) )
+diffbind_peaks <- GRanges( seqnames=x$chrom
+           , ranges=IRanges(x$start, end=x$end, names=paste( 'diffbind', condition, x$name, sep='_' ))
+           , strand=x$strand
+           , p_value=x$p_value
+           , alpha=1.0
+           , sig=x$p_value < diffbind_cuttoff
+           , method='macs2-diffbind'
+           , condition=treatment_condition )  
+
+de_peaks        <- c(pepr_peaks, thor_peaks, diffbind_peaks)
 de_search_peaks <- de_peaks
 
 # Read single condition peaks
@@ -162,7 +175,7 @@ idr_peaks <- pmap( list(idr_filenames, idr_conditions, idr_elements), function(i
          , p_value=x$idr
          , sig=x$idr < idr_cuttoff
          , alpha=1.0/condition2idr_number[idr_condition]
-         , method='idr'
+         , method='macs2-idr'
          , condition=idr_condition )
 }) %>% do.call('c',.)
 idr_treatment <- subset( idr_peaks, condition %in% treatment_conditions )

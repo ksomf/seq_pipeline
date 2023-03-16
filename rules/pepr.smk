@@ -1,17 +1,16 @@
 rule pepr_diffbind:
 	input:
-		cond1_ips        = lambda wildcards: [ os.path.join(config['align_dir'], f'{sample_id}.' + config["aligner"] + '_aligned.sorted_by_name.bam'    ) for sample_id in condition2sample_ids[wildcards.condition1] ],
-		cond1_inputs     = lambda wildcards: [ os.path.join(config['align_dir'], f'{sample_id}.' + config["aligner"] + '_aligned.sorted_by_name.bam'    ) for sample_id in condition2input_ids [wildcards.condition1] ],
-		cond2_ips        = lambda wildcards: [ os.path.join(config['align_dir'], f'{sample_id}.' + config["aligner"] + '_aligned.sorted_by_name.bam'    ) for sample_id in condition2sample_ids[wildcards.condition2] ],
-		cond2_inputs     = lambda wildcards: [ os.path.join(config['align_dir'], f'{sample_id}.' + config["aligner"] + '_aligned.sorted_by_name.bam'    ) for sample_id in condition2input_ids [wildcards.condition2] ],
+		cond1_ips        = lambda wildcards: [ sample_id2bam[sample_id].replace('.bam','.sorted_by_name.bam') for sample_id in condition2sample_ids[wildcards.condition1] ],
+		cond1_inputs     = lambda wildcards: [ sample_id2bam[sample_id].replace('.bam','.sorted_by_name.bam') for sample_id in condition2input_ids [wildcards.condition1] ],
+		cond2_ips        = lambda wildcards: [ sample_id2bam[sample_id].replace('.bam','.sorted_by_name.bam') for sample_id in condition2sample_ids[wildcards.condition2] ],
+		cond2_inputs     = lambda wildcards: [ sample_id2bam[sample_id].replace('.bam','.sorted_by_name.bam') for sample_id in condition2input_ids [wildcards.condition2] ],
 	output:
-		pepr_peaks  = os.path.join(config["peakcalling_dir"],'pepr','{condition1}vs{condition2}_PePr_peaks.bed'),
-		pepr_cond1  = os.path.join(config["peakcalling_dir"],'pepr','{condition1}vs{condition2}_PePr_chip1_peaks.bed'),
-		pepr_cond2  = os.path.join(config["peakcalling_dir"],'pepr','{condition1}vs{condition2}_PePr_chip2_peaks.bed'),
-		pepr_params = os.path.join(config["peakcalling_dir"],'pepr','{condition1}vs{condition2}_PePr_parameters.txt'),
+		pepr_cond1  = os.path.join(config["peakcalling_dir"],'pepr','{condition1}_vs_{condition2}__PePr_chip1_peaks.bed'),
+		pepr_cond2  = os.path.join(config["peakcalling_dir"],'pepr','{condition1}_vs_{condition2}__PePr_chip2_peaks.bed'),
+		pepr_params = os.path.join(config["peakcalling_dir"],'pepr','{condition1}_vs_{condition2}__PePr_parameters.txt'),
 	params:
-		prefix       = lambda wildcards: 'vs'.join([wildcards.condition1, wildcards.condition2]),
-		output_dir   = lambda wildcards, output: os.path.dirname(output.pepr_peaks),
+		prefix       = lambda wildcards: '_vs_'.join([wildcards.condition1, wildcards.condition2]),
+		output_dir   = lambda wildcards, output: os.path.dirname(output.pepr_cond1),
 		cond1_ips    = lambda wildcards, input: ','.join(input.cond1_ips),
 		cond1_inputs = lambda wildcards, input: ','.join(input.cond1_inputs),
 		cond2_ips    = lambda wildcards, input: ','.join(input.cond2_ips),

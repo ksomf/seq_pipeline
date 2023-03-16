@@ -4,5 +4,5 @@ channels:
   - bioconda
 dependencies:
   - python=3
-  - numpy=1.19.5
+  - numpy=1.19.5 #IDR needs this version or lower for numpy.int (now int or numpy.int32)
   - idr

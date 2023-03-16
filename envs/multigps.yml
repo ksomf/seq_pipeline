@@ -4,5 +4,4 @@ channels:
   - conda-forge
 dependencies:
   - python=3
-  - ucsc-bedgraphtobigwig # Installs libpng12
-  - rgt
+  - multigps
