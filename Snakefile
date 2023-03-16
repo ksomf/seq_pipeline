@@ -15,10 +15,6 @@ for k, v in defaults.items():
 		config[k] = v
 
 metadata = pd.read_csv(config['metadata'], sep='\t')
-metadata_ip_only    = metadata[ metadata['method']=='IP' ]
-metadata_input_only = metadata[ metadata['method']=='Input' ]
-condition2sample_ids = { g:df['sample_id'].to_list() for g, df in metadata_ip_only   .groupby(['condition']) }
-condition2input_ids  = { g:df['sample_id'].to_list() for g, df in metadata_input_only.groupby(['condition']) }
 conditions = list(set(metadata['condition']))
 
 sample_ids = metadata['sample_id']
@@ -26,6 +22,11 @@ sample_readlist = list(chain(metadata['R1'],metadata['R2']))
 sample_id2reads = dict(zip(metadata['sample_id'],zip(metadata['R1'],metadata['R2'])))
 ip_sample_id2input_sample_id = dict(zip(metadata['sample_id'],metadata['matching_input_control']))
 sample_ids_ip = metadata[ metadata['method']=='IP' ]['sample_id']
+
+metadata_ip_only    = metadata[ metadata['method']=='IP' ]
+metadata_input_only = metadata[ metadata['method']=='Input' ]
+condition2sample_ids = { g:df['sample_id'].to_list() for g, df in metadata_ip_only   .groupby(['condition']) }
+condition2input_ids  = { g:[ip_sample_id2input_sample_id[s] for s in condition2sample_ids[g]] for g in condition2sample_ids.keys() }
 
 print('Conditin2samples')
 print(condition2sample_ids)
@@ -63,6 +64,7 @@ include: 'rules/align_star.smk'
 include: 'rules/align_bowtie2.smk'
 include: 'rules/macs2.smk'
 include: 'rules/pepr.smk'
+include: 'rules/thor.smk'
 include: 'rules/genrich.smk'
 include: 'rules/sailor.smk'
 include: 'rules/pileups.smk'
@@ -77,7 +79,7 @@ rule all:
 
 rule dev:
 	input:
-		plot_dir=directory(os.path.join(config['peakcalling_dir'],'analysis','plots')),
+		plot_dir=os.path.join(config['peakcalling_dir'],'analysis','summary.txt'),
 		#aligned_bam=[os.path.join(config['align_dir'], f'{sample_id}.star_aligned.bam') for sample_id in sample_ids]
 
 #TODO: Make the blacklist use the standard chromosome names by using the chrom report to map

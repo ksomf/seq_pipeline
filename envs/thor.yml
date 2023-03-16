@@ -1,0 +1,7 @@
+name: seq-pipeline-thor
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - python=3
+  - rgt
