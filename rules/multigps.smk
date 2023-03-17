@@ -17,14 +17,14 @@ rule multigps_diffbind_input:
 		df_ip              = pd.DataFrame()
 		df_ip['filename']  = list(chain(input.condition1_ips, input.condition2_ips))
 		df_ip['input']     = 'signal'
-		df_ip['file_fmt']  = 'bam'
+		df_ip['file_fmt']  = 'BAM'
 		df_ip['condition'] = [wildcards.condition1]*len(params.condition1_ips) + [wildcards.condition2]*len(params.condition2_ips)
 		df_ip['rep']       = list(range(1,1+len(df_ip)))
 
 		df_input              = pd.DataFrame()
 		df_input['filename']  = list(chain(input.condition1_inputs, input.condition2_inputs))
 		df_input['input']     = 'control'
-		df_input['file_fmt']  = 'bam'
+		df_input['file_fmt']  = 'BAM'
 		df_input['condition'] = [wildcards.condition1]*len(params.condition1_input) + [wildcards.condition2]*len(params.condition2_input)
 		df_input['rep']       = list(range(1,1+len(df_input)))
 
@@ -42,12 +42,14 @@ rule multigps_diffbind:
 	params:
 		control_condition = lambda wildcards: wildcards.condition2
 	threads: len(sample_ids)
+	resources:
+		memory_gb = 256
 	conda: '../envs/multigps.yml'
 	shell:
 		'''
-			java -Xmx20G -jar multigps.jar          \
-			     --geninfo {input.chromosome_sizes} \
-			     --threads {threads}                \
-			     --design  {input.param_file}
+			multigps -Xms512m -Xmx{resources.memory_gb}g \
+			         --geninfo {input.chromosome_sizes}  \
+			         --threads {threads}                 \
+			         --design  {input.param_file}
 		'''
 

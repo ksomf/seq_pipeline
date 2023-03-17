@@ -26,6 +26,7 @@ rule thor_diffbind:
 	conda: '../envs/thor.yml'
 	shell:
 		'''
+			rm -r {params.output_dir}
 			mkdir -p {params.output_dir}
 			echo '#rep1'                    >  {output.config}
 			echo '{params.cond1_nl}'        >> {output.config}

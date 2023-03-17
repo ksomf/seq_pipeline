@@ -1,7 +1,8 @@
-name: seq-pipeline-multigps
+name: seq-pipeline-diffreps
 channels:
   - bioconda
   - conda-forge
 dependencies:
   - python=3
-  - multigps
+  - perl-app-cpanminus
+  - gcc

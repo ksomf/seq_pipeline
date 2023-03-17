@@ -1,7 +1,7 @@
-name: seq-pipeline-multigps
+name: seq-pipeline-csaw
 channels:
   - bioconda
   - conda-forge
 dependencies:
   - python=3
-  - multigps
+  - bioconductor-csaw
