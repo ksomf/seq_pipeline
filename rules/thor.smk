@@ -11,13 +11,13 @@ rule thor_diffbind:
 		chromosome_sizes   = os.path.join(config['reference_dir'],f'{config["assembly"]}_chromosome_sizes.tsv'),
 		genome             = os.path.join(config['reference_dir'],f'{config["assembly"]}.fasta'),
 	output:
-		#peaks  = os.path.join(config["peakcalling_dir"],'thor','run','{condition1}_vs_{condition2}-diffpeaks.bed'),
-		npeaks = os.path.join(config["peakcalling_dir"],'thor','run','{condition1}_vs_{condition2}-diffpeaks.narrowPeak'),
+		peaks  = os.path.join(config["peakcalling_dir"],'thor','run','{condition1}_vs_{condition2}-diffpeaks.bed'),
+		#npeaks = os.path.join(config["peakcalling_dir"],'thor','run','{condition1}_vs_{condition2}-diffpeaks.narrowPeak'), # thor currently fails to produce this file due to internal file handle problems
 		info   = os.path.join(config["peakcalling_dir"],'thor','run','{condition1}_vs_{condition2}-setup.info'),
 		config = os.path.join(config["peakcalling_dir"],'thor'      ,'{condition1}_vs_{condition2}-setup.config'), #thor fails if there are any files with the prefix in the output directory
 	params:
 		prefix       = lambda wildcards: '_vs_'.join([wildcards.condition1, wildcards.condition2]),
-		output_dir   = lambda wildcards, output: os.path.dirname(output.npeaks),
+		output_dir   = lambda wildcards, output: os.path.dirname(output.peaks),
 		cond1_nl     = lambda wildcards, input: '\n'.join(input.cond1_ips),
 		cond2_nl     = lambda wildcards, input: '\n'.join(input.cond2_ips),
 		cond1_inl    = lambda wildcards, input: '\n'.join(input.cond1_inputs),
@@ -45,6 +45,5 @@ rule thor_diffbind:
 
 			rgt-THOR --name       {params.prefix}     \
 			         --output-dir {params.output_dir} \
-			         {output.config}
-
+			         {output.config} || exit 0 # This command will fail because of it's internal file handles
 			'''

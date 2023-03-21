@@ -7,54 +7,44 @@ library(tidyverse)
 
 LERP <- function(y1, y2, x){y1 + (y2-y1)*x}
 
-#pepr_peaks_filename   <- '../04_peakcalling/pepr/MAVSvsd103-467__PePr_chip1_peaks.bed'
-#genrich_filenames     <- list.files('../04_peakcalling/genrich/', full.names=TRUE)   %>% .[str_ends(.,'_peaks.narrowPeak')]
-#genrich_conditions    <- list.files('../04_peakcalling/genrich/', full.names=FALSE)  %>% .[str_ends(.,'_peaks.narrowPeak')]%>% str_remove('_peaks.narrowPeak')
-#idr_filenames         <- list.files('../04_peakcalling/idr/'    , full.names=TRUE  ) %>% .[str_ends(.,'_true.tsv')]
-#idr_conditions        <- list.files('../04_peakcalling/idr/'    , full.names=FALSE ) %>% .[str_ends(.,'_true.tsv')] %>% map_chr( ~str_split(.x, '_', n=2)[[1]][1] )
-#idr_elements          <- list.files('../04_peakcalling/idr/'    , full.names=FALSE ) %>% .[str_ends(.,'_true.tsv')] %>% map_chr( ~str_split(.x, '_', n=2)[[1]][2] ) %>% str_remove('_true.tsv')
-#bam_files             <- list.files('../03_aligned/', full.names=TRUE ) %>% .[str_ends(.,'star_aligned.bam')]
-#bam_index_files       <- list.files('../03_aligned/', full.names=TRUE ) %>% .[str_ends(.,'star_aligned.bam.bai')]
+#condition_peaks <- '../04_peakcalling/analysis/condition_peaks.tsv'
+#diffbind_peaks  <- '../04_peakcalling/analysis/diffbind_peaks.tsv'
+#bam_files       <- list.files('../03_aligned/', full.names=TRUE ) %>% .[str_ends(.,'star_aligned.bam')]
+#bam_index_files <- list.files('../03_aligned/', full.names=TRUE ) %>% .[str_ends(.,'star_aligned.bam.bai')]
+#library_sizes   <- '../04_peakcalling/diffbind/norm.tsv'
+#gff_filename    <- '../../reference/hg38.gff'
+
 #sample_ids            <- list.files('../03_aligned/', full.names=FALSE) %>% .[str_ends(.,'star_aligned.bam')] %>% str_remove('.star_aligned.bam')
 #treatment_conditions  <- 'MAVS'
 #control_condition     <- 'd103-467'
 #metadata_filename     <- '../metadata.tsv'
-#gff_filename          <- '../../reference/hg38.gff'
+
 #output_dir            <- '../04_peakcalling/analysis/plots/'
+
 #threads               <- 32
-#pepr_cuttoff          <- 1e-15
-#genrich_cuttoff       <- 1e-5
-#idr_cuttoff           <- 0.01
 
-pepr_peaks_filename     <- snakemake@input[['pepr_peaks']]
-thor_peaks_filename     <- snakemake@input[['thor_peaks']]
-diffbind_peaks_filename <- snakemake@input[['diffbind_peaks']]
-genrich_filenames       <- snakemake@input[['genrich_peaks']]
-genrich_conditions      <- snakemake@params[['genrich_conditions']]
-idr_filenames           <- snakemake@input[['idr_peaks']]
-idr_conditions          <- snakemake@params[['idr_conditions']]
-idr_elements            <- snakemake@params[['idr_elements']]
-bam_files               <- snakemake@input[['bam_files']]
-bam_index_files         <- snakemake@input[['bam_index_files']]
-sample_ids              <- snakemake@params[['sample_ids']]
-metadata_filename       <- snakemake@params[['metadata']]
-treatment_conditions    <- snakemake@params[['treatment_conditions']]
-control_condition       <- snakemake@params[['control_conditions']]
-gff_filename            <- snakemake@input[['gff']]
+condition_peaks <- snakemake@input[['condition_peaks']]
+diffbind_peaks  <- snakemake@input[['diffbind_peaks' ]]
+bam_files       <- snakemake@input[['bam_files'      ]]
+bam_index_files <- snakemake@input[['bam_index_files']]
+library_sizes   <- snakemake@input[['library_sizes'  ]]
+gff_filename    <- snakemake@input[['gff'            ]]
+
+treatment_conditions  <- snakemake@params[['treatment_conditions']]
+control_condition     <- snakemake@params[['control_condition'   ]]
+metadata_filename     <- snakemake@params[['metadata_filename'   ]]
+sample_ids            <- snakemake@params[['sample_ids'          ]]
+
 output_dir              <- snakemake@output[['plot_dir']]
-threads                 <- snakemake@threads
-pepr_cuttoff            <- snakemake@params[['pepr_cuttoff']]
-thor_cuttoff            <- snakemake@params[['thor_cuttoff']]
-genrich_cuttoff         <- snakemake@params[['genrich_cuttoff']]
-idr_cuttoff             <- snakemake@params[['idr_cuttoff']]
-diffbind_cuttoff        <- snakemake@params[['diffbind_cuttoff']]
 
-ordered_conditions    <- c(treatment_conditions, control_condition)
+threads                 <- snakemake@threads
+
 
 plan(multisession, workers=threads)
 #TODO normalise bam files against each other using RPKM
 
 # Read metadata
+ordered_conditions <- c(treatment_conditions, control_condition)
 metadata <- read_tsv( metadata_filename, show_col_types=FALSE )
 sample2condition <- select(metadata, sample_id, condition) %>% deframe()
 sample2input     <- select(metadata, sample_id, method   ) %>% mutate(method=method=='Input') %>% deframe()
@@ -101,91 +91,99 @@ gff_exons <- gff_full %>%
 gff <- bind_rows( list(gene=gff_genes, exons=gff_exons), .id='meta_level' )
 
 # Read in DiffBind results
-broadpeak_colnames <- c( 'chrom', 'start', 'end', 'name', 'score', 'strand', 'enrichment', 'p_value', 'q_value' )
-pepr_peaks <- map2( pepr_peaks_filename, treatment_conditions, function(pepr_file, treatment_condition){
-  x <- read_tsv( pepr_file, col_names=broadpeak_colnames, show_col_types=FALSE ) %>%
-    mutate( strand=ifelse(strand == '.', '*', strand) )
-  GRanges( seqnames=x$chrom
-         , ranges=IRanges(x$start, end=x$end, names=paste( 'pepr', condition, x$name, sep='_' ))
-         , strand=x$strand
-         , p_value=x$p_value
-         , alpha=1.0
-         , sig=x$p_value < pepr_cuttoff
-         , method='pepr'
-         , condition=treatment_condition )  
-}) %>% do.call('c',.)
+#broadpeak_colnames <- c( 'chrom', 'start', 'end', 'name', 'score', 'strand', 'enrichment', 'p_value', 'q_value' )
+#pepr_peaks <- map2( pepr_peaks_filename, treatment_conditions, function(pepr_file, treatment_condition){
+#  x <- read_tsv( pepr_file, col_names=broadpeak_colnames, show_col_types=FALSE ) %>%
+#    mutate( strand=ifelse(strand == '.', '*', strand) )
+#  GRanges( seqnames=x$chrom
+#         , ranges=IRanges(x$start, end=x$end, names=paste( 'pepr', condition, x$name, sep='_' ))
+#         , strand=x$strand
+#         , p_value=x$p_value
+#         , alpha=1.0
+#         , sig=x$p_value < pepr_cuttoff
+#         , method='pepr'
+#         , condition=treatment_condition )  
+#}) %>% do.call('c',.)
+#
+#thor_colnames <- c( 'chrom', 'start', 'end', 'name', 'score', 'strand', 'enrichment', 'p_value', 'q_value' )
+#thor_peaks <- map2( thor_peaks_filename, treatment_conditions, function(thor_file, treatment_condition){
+#  x <- read_tsv( thor_file, col_names=broadpeak_colnames, show_col_types=FALSE ) %>%
+#    mutate( strand=ifelse(strand == '.', '*', strand) )
+#  GRanges( seqnames=x$chrom
+#         , ranges=IRanges(x$start, end=x$end, names=paste( 'thor', condition, x$name, sep='_' ))
+#         , strand=x$strand
+#         , p_value=x$p_value
+#         , alpha=1.0
+#         , sig=x$p_value < thor_cuttoff
+#         , method='thor'
+#         , condition=treatment_condition )  
+#}) %>% do.call('c',.)
+#
+#x <- read_tsv( diffbind_peaks_filename, show_col_types=FALSE ) %>%
+#    mutate( strand=ifelse(strand == '.', '*', strand) )
+#diffbind_peaks <- GRanges( seqnames=x$chrom
+#           , ranges=IRanges(x$start, end=x$end, names=paste( 'diffbind', condition, x$name, sep='_' ))
+#           , strand=x$strand
+#           , p_value=x$p_value
+#           , alpha=1.0
+#           , sig=x$p_value < diffbind_cuttoff
+#           , method='macs2-diffbind'
+#           , condition=treatment_condition )  
+#
+#de_peaks        <- c(pepr_peaks, thor_peaks, diffbind_peaks)
 
-thor_colnames <- c( 'chrom', 'start', 'end', 'name', 'score', 'strand', 'enrichment', 'p_value', 'q_value' )
-thor_peaks <- map2( thor_peaks_filename, treatment_conditions, function(thor_file, treatment_condition){
-  x <- read_tsv( thor_file, col_names=broadpeak_colnames, show_col_types=FALSE ) %>%
-    mutate( strand=ifelse(strand == '.', '*', strand) )
-  GRanges( seqnames=x$chrom
-         , ranges=IRanges(x$start, end=x$end, names=paste( 'thor', condition, x$name, sep='_' ))
-         , strand=x$strand
-         , p_value=x$p_value
-         , alpha=1.0
-         , sig=x$p_value < thor_cuttoff
-         , method='thor'
-         , condition=treatment_condition )  
-}) %>% do.call('c',.)
-
-x <- read_tsv( diffbind_peaks_filename, show_col_types=FALSE ) %>%
-    mutate( strand=ifelse(strand == '.', '*', strand) )
-diffbind_peaks <- GRanges( seqnames=x$chrom
-           , ranges=IRanges(x$start, end=x$end, names=paste( 'diffbind', condition, x$name, sep='_' ))
-           , strand=x$strand
-           , p_value=x$p_value
-           , alpha=1.0
-           , sig=x$p_value < diffbind_cuttoff
-           , method='macs2-diffbind'
-           , condition=treatment_condition )  
-
-de_peaks        <- c(pepr_peaks, thor_peaks, diffbind_peaks)
+de_peaks        <- read_tsv(diffbind_peaks)
 de_search_peaks <- de_peaks
 
 # Read single condition peaks
-genrich_colnames <- c( 'chrom', 'start', 'end', 'name', 'scaled_auc', 'strand', 'auc', '-log10(pvalue)', 'qvalue', 'peak' )
-genrich_peaks <- map2( genrich_filenames, genrich_conditions, function(genrich_file, condition){
-  x <- read_tsv( genrich_file, col_names=genrich_colnames, show_col_types=FALSE ) %>% 
-    mutate( strand=ifelse(strand == '.', '*', strand) )
-  GRanges( seqnames=x$chrom
-         , ranges=IRanges(x$start, end=x$end, names=paste( 'genrich', condition, x$name, sep='_' ))
-         , strand=x$strand
-         , p_value=10**(-x$`-log10(pvalue)`)
-         , sig=10**(-x$`-log10(pvalue)`) < genrich_cuttoff
-         , alpha=1.0
-         , method='genrich'
-         , condition=condition )
-}) %>% do.call('c',.)
-genrich_treatment <- subset( genrich_peaks, condition %in% treatment_conditions )
-genrich_control   <- subset( genrich_peaks, condition %in% control_condition    )
-nonoverlapping_ranges <- findOverlaps( genrich_treatment, genrich_control, select='first' ) %>% is.na()
-genrich_unique_treatment_ranges <- subset( genrich_treatment, nonoverlapping_ranges ) %>% 
-  subset(sig)
+#genrich_colnames <- c( 'chrom', 'start', 'end', 'name', 'scaled_auc', 'strand', 'auc', '-log10(pvalue)', 'qvalue', 'peak' )
+#genrich_peaks <- map2( genrich_filenames, genrich_conditions, function(genrich_file, condition){
+#  x <- read_tsv( genrich_file, col_names=genrich_colnames, show_col_types=FALSE ) %>% 
+#    mutate( strand=ifelse(strand == '.', '*', strand) )
+#  GRanges( seqnames=x$chrom
+#         , ranges=IRanges(x$start, end=x$end, names=paste( 'genrich', condition, x$name, sep='_' ))
+#         , strand=x$strand
+#         , p_value=10**(-x$`-log10(pvalue)`)
+#         , sig=10**(-x$`-log10(pvalue)`) < genrich_cuttoff
+#         , alpha=1.0
+#         , method='genrich'
+#         , condition=condition )
+#}) %>% do.call('c',.)
+#genrich_treatment <- subset( genrich_peaks, condition %in% treatment_conditions )
+#genrich_control   <- subset( genrich_peaks, condition %in% control_condition    )
+#nonoverlapping_ranges <- findOverlaps( genrich_treatment, genrich_control, select='first' ) %>% is.na()
+#genrich_unique_treatment_ranges <- subset( genrich_treatment, nonoverlapping_ranges ) %>% 
+#  subset(sig)
+#
+#idr_colnames <- c( 'chrom', 'start', 'end', 'name', 'scaled_idr', 'strand', 'enrichment', 'p_value', 'q_value', 'peak', 'local_idr', 'global_idr', 's1_start', 's1_end', 's1_enrichment', 's1_summit', 's2_start', 's2_end', 's2_enrichment', 's2_summit')
+#condition2idr_number <- table(idr_conditions)
+#idr_peaks <- pmap( list(idr_filenames, idr_conditions, idr_elements), function(idr_filename, idr_condition, idr_element){
+#  x <- read_tsv( idr_filename, col_names=idr_colnames, show_col_types = FALSE) %>%
+#    mutate( strand=ifelse(strand == '.', '*', strand) ) %>% 
+#    mutate( idr=2**(scaled_idr/-125) )
+#  GRanges( seqnames=x$chrom
+#         , ranges=IRanges(x$start, end=x$end, names=paste( 'idr', idr_condition, idr_element, seq_along(x$name), sep='_' ))
+#         , strand=x$strand
+#         , p_value=x$idr
+#         , sig=x$idr < idr_cuttoff
+#         , alpha=1.0/condition2idr_number[idr_condition]
+#         , method='macs2-idr'
+#         , condition=idr_condition )
+#}) %>% do.call('c',.)
+#idr_treatment <- subset( idr_peaks, condition %in% treatment_conditions )
+#idr_control   <- subset( idr_peaks, condition %in% control_condition    )
+#nonoverlapping_ranges <- findOverlaps( idr_treatment, idr_control, select='first' ) %>% is.na()
+#idr_unique_treatment_ranges <- subset( idr_treatment, nonoverlapping_ranges ) %>% 
+#  subset(sig)
+#
+#cond_search_peaks <- c( genrich_unique_treatment_ranges, idr_unique_treatment_ranges )
+#cond_peaks <- c( genrich_peaks, idr_peaks )
 
-idr_colnames <- c( 'chrom', 'start', 'end', 'name', 'scaled_idr', 'strand', 'enrichment', 'p_value', 'q_value', 'peak', 'local_idr', 'global_idr', 's1_start', 's1_end', 's1_enrichment', 's1_summit', 's2_start', 's2_end', 's2_enrichment', 's2_summit')
-condition2idr_number <- table(idr_conditions)
-idr_peaks <- pmap( list(idr_filenames, idr_conditions, idr_elements), function(idr_filename, idr_condition, idr_element){
-  x <- read_tsv( idr_filename, col_names=idr_colnames, show_col_types = FALSE) %>%
-    mutate( strand=ifelse(strand == '.', '*', strand) ) %>% 
-    mutate( idr=2**(scaled_idr/-125) )
-  GRanges( seqnames=x$chrom
-         , ranges=IRanges(x$start, end=x$end, names=paste( 'idr', idr_condition, idr_element, seq_along(x$name), sep='_' ))
-         , strand=x$strand
-         , p_value=x$idr
-         , sig=x$idr < idr_cuttoff
-         , alpha=1.0/condition2idr_number[idr_condition]
-         , method='macs2-idr'
-         , condition=idr_condition )
-}) %>% do.call('c',.)
-idr_treatment <- subset( idr_peaks, condition %in% treatment_conditions )
-idr_control   <- subset( idr_peaks, condition %in% control_condition    )
-nonoverlapping_ranges <- findOverlaps( idr_treatment, idr_control, select='first' ) %>% is.na()
-idr_unique_treatment_ranges <- subset( idr_treatment, nonoverlapping_ranges ) %>% 
-  subset(sig)
-
-cond_search_peaks <- c( genrich_unique_treatment_ranges, idr_unique_treatment_ranges )
-cond_peaks <- c( genrich_peaks, idr_peaks )
+cond_peaks <- read_tsv(condition_peaks)
+cond_search_peaks <- cond_peaks %>%
+	group_by('method') %>%
+	group_modify(function(g, df){
+	})
 
 search_peaks <- c( de_search_peaks, cond_search_peaks )
 peaks        <- c( de_peaks       , cond_peaks        )

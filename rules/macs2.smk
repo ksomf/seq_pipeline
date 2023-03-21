@@ -168,3 +168,35 @@ rule idr_combine:
 		report=os.path.join(config["peakcalling_dir"],'idr','report.txt'),
 	conda: '../envs/environment.yml'
 	shell: 'cat {input} > {output}'
+
+from collections import Counter
+
+rule idr2tsv:
+	input:
+		idr_filenames = [ os.path.join(config['peakcalling_dir'],'idr',f'{condition}_{sample1_id}_{sample2_id}_true.tsv') for condition in conditions for sample1_id, sample2_id in combinations(condition2sample_ids[condition], 2) ],
+	output:
+		condition_peaks = os.path.join(config['peakcalling_dir'],'idr','merged_true_peaks.tsv'),
+	params:
+		idr_conditions       = [ condition                          for condition in conditions for sample1_id, sample2_id in combinations(condition2sample_ids[condition], 2) ],
+		idr_elements         = [ '_'.join([sample1_id, sample2_id]) for condition in conditions for sample1_id, sample2_id in combinations(condition2sample_ids[condition], 2) ],
+		idr_cuttoff          = 0.01,
+	run:
+		idr_colnames = [ 'chrom', 'start', 'end', 'name', 'stat', 'strand', 'enrichment', 'p_value', 'q_value', 'peak', 'local_idr', 'global_idr', 's1_start', 's1_end', 's1_enrichment', 's1_summit', 's2_start', 's2_end', 's2_enrichment', 's2_summit' ]
+		res = []
+		condition2counts = Counter(params.idr_conditions)
+		for idr_filename, idr_condition, idr_element in zip(input.idr_filenames, params.idr_conditions, params.idr_elements):
+			df                = pd.read_csv(idr_filename, sep='\t', names=idr_colnames)
+			df['strand']      = np.where( df['strand'] == '.', '*', df['strand'] )
+			df['stat']         = 2**(df['stat']/-125)
+			df['name']        = [ '_'.join(['idr', idr_condition, idr_element, i]) for i,name in enumerate(df['name']) ]
+			df['siblings']    = condition2counts[idr_condition]
+			df['method']      = 'macs2-idr'
+			df['condition']   = idr_condition
+			df['significant'] = df['stat'] < params.idr_cuttoff
+			df['stat']        = 'idr'
+			res.append(df)
+		res = pd.concat(res)
+		res = res[['chrom', 'start', 'end', 'strand', 'name', 'method', 'condtion', 'stat', 'stat_type', 'significant' ]]
+		res.to_csv( output.condition_peaks, sep='\t', index=False )
+
+

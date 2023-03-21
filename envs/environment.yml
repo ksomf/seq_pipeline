@@ -11,3 +11,4 @@ dependencies:
   - snakemake
   - tqdm
   - flexbar
+  - pybedtools

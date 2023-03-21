@@ -15,3 +15,31 @@ rule genrich_consitent_peaks:
 			        -k {output.pileups}     \
 			        -b {output.peaks}
 		'''
+
+rule genrich2tsv:
+	input:
+		genrich_filenames = [ os.path.join(config['peakcalling_dir'],'genrich',f'{condition}_peaks.narrowPeak') for condition in conditions ],
+	output:
+		condition_peaks = os.path.join(config['peakcalling_dir'],'genrich','merged_peaks.tsv'),
+	params:
+		genrich_conditions = conditions,
+		genrich_cuttoff    = 1e-5,
+	run:
+		genrich_colnames <- [ 'chrom', 'start', 'end', 'name', 'scaled_auc', 'strand', 'auc', 'stat', 'qvalue', 'peak' ]
+		res = []
+		for genrich_filename, genrich_condition in zip(input.genrich_filenames, params.genrich_conditions):
+			df                = pd.read_csv(genrich_filename, sep='\t', names=genrich_colnames)
+			df['strand']      = np.where( df['strand'] == '.', '*', df['strand'] )
+			df['stat']        = 10**(-df['stat'])
+			df['name']        = [ '_'.join(['genrich', genrich_condition, name]) for name in df['name'] ]
+			df['siblings']    = 1
+			df['method']      = 'genrich'
+			df['condition']   = genrich_condition
+			df['significant'] = df['stat'] < params.genrich_cuttoff
+			df['stat_type']   = 'pvalue'
+			res.append(df)
+		res = pd.concat(res)
+		res = res[['chrom', 'start', 'end', 'strand', 'name', 'method', 'condtion', 'stat', 'stat_type', 'significant']]
+		res.to_csv( output.condition_peaks, sep='\t', index=False )
+
+

@@ -1,0 +1,8 @@
+name: seq-pipeline-piranha
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - python=3
+  - piranha
+

@@ -58,12 +58,13 @@ rule download_enhancers:
 rule generate_gtf:
 	input:  os.path.join(config['reference_dir'],'{assembly}.gff'),
 	output: os.path.join(config['reference_dir'],'{assembly}.gtf'),
+	log:    os.path.join(config['reference_dir'],'{assembly}_agat_gff2gtf.log')
 	conda: '../envs/assemblies.yml'
 	shell:
 		'''
 		#https://github.com/NBISweden/GAAS/blob/master/annotation/knowledge/gff_to_gtf.md
 		#https://github.com/NBISweden/AGAT
-		agat_convert_sp_gff2gtf.pl --gff {input} -o {output}
+		agat_convert_sp_gff2gtf.pl --gff {input} -o {output} > {log}
 		'''
 
 rule generate_faidx:

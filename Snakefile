@@ -1,6 +1,8 @@
 # snakemake --cores 32 --use-conda --conda-frontend mamba dev
 
-import pandas as pd
+import numpy      as np
+import pandas     as pd
+import pybedtools as bedtools
 from itertools import chain
 
 configfile: 'config.yml'
@@ -69,11 +71,12 @@ include: 'rules/qc.smk'
 include: 'rules/align_star.smk'
 include: 'rules/align_bowtie2.smk'
 include: 'rules/macs2.smk'
+include: 'rules/piranha.smk'
 include: 'rules/pepr.smk'
 include: 'rules/thor.smk'
 include: 'rules/genrich.smk'
 include: 'rules/diffbind.smk'
-include: 'rules/multigps.smk'
+#include: 'rules/multigps.smk'
 include: 'rules/sailor.smk'
 include: 'rules/pileups.smk'
 

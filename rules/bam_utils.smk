@@ -39,3 +39,10 @@ rule filter_bam:
 		fail_flag=create_align_flag(['read_is_unmapped', 'mate_is_unmapped', 'not_primary_alignment', 'read_fails_platform_or_vendor_checks', 'read_is_pcr_or_optical_duplicate'])
 	conda: '../envs/samtools.yml'
 	shell: 'samtools view -q {params.phred_quality_cuttoff} -F {params.fail_flag} -f {params.pass_flag} -L {input.whitelist} -o {output} {input.sorted_file[0]}'
+
+rule bam2bed:
+	input:  os.path.join('{path}', '{bamfile}.bam'),
+	output: temp(local(os.path.join('{path}', '{bamfile}.bam2bed.bed'))),
+	conda: '../envs/samtools.yml'
+	shell: 'bedtools bamtobed -i {input} > {output}'
+

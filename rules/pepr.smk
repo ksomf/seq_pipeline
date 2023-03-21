@@ -30,3 +30,27 @@ rule pepr_diffbind:
 			     --output-directory {params.output_dir}   \
 			     --diff
 		'''
+
+rule pepr2tsv:
+	input:
+		pepr_peaks = [ os.path.join(config['peakcalling_dir'],'pepr',f'{condition}_vs_{config["control_condition"]}__PePr_chip1_peaks.bed') for condition in config['treatment_conditions'] ],
+	output:
+		diffbind_peaks = os.path.join(config['peakcalling_dir'],'pepr','merged_peaks.tsv'),
+	params:
+		pepr_conditions = config['treatment_conditions']
+		pepr_cuttoff = 1e-15,
+	run:
+		broadpeak_colnames <- [ 'chrom', 'start', 'end', 'name', 'score', 'strand', 'enrichment', 'p_value', 'q_value' ]
+		res = []
+		for pepr_filename, pepr_condition in zip(input.pepr_peaks, params.pepr_conditions):
+			df                = pd.read_csv(pepr_filename, sep='\t', names=pepr_colnames)
+			df['strand']      = np.where( df['strand'] == '.', '*', df['strand'] )
+			df['name']        = [ '_'.join(['pepr', pepr_condition, i]) for i,name in enumerate(df['name']) ]
+			df['method']      = 'pepr'
+			df['condition']   = pepr_condition
+			df['significant'] = df['stat'] < params.pepr_cuttoff
+			df['stat']        = 'pvalue'
+			res.append(df)
+		res = pd.concat(res)
+		res = res[['chrom', 'start', 'end', 'strand', 'name', 'method', 'condtion', 'stat', 'stat_type', 'significant' ]]
+		res.to_csv( output.condition_peaks, sep='\t', index=False )
