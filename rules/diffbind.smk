@@ -1,14 +1,14 @@
 rule diffbind_diffbind_input:
 	input:
-		ips    = [ sample_id2bam[sample_id]                                                      for condition in conditions for sample_id in condition2sample_ids[condition] ],
-		inputs = [ sample_id2bam[sample_id]                                                      for condition in conditions for sample_id in condition2input_ids [condition] ],
-		peaks  = [ os.path.join(config["peakcalling_dir"], f'{sample_id}_full_peaks.narrowPeak') for condition in conditions for sample_id in condition2sample_ids[condition] ],
+		ips    = [ sample_id2bam[sample_id]                                                      for condition in conditions for sample_id in condition2sample_ids.get(condition, []) ],
+		inputs = [ sample_id2bam[sample_id]                                                      for condition in conditions for sample_id in condition2input_ids .get(condition, []) ],
+		peaks  = [ os.path.join(config["peakcalling_dir"], f'{sample_id}_full_peaks.narrowPeak') for condition in conditions for sample_id in condition2sample_ids.get(condition, []) ],
 	output:
 		param_file = os.path.join( config['peakcalling_dir'], 'diffbind', 'params.tsv' ),
 	params:
-		conditions = [ condition  for condition in conditions for sample_id in condition2sample_ids[condition] ],
-		ip_ids     = [ sample_ids for condition in conditions for sample_id in condition2sample_ids[condition] ],
-		input_ids  = [ sample_ids for condition in conditions for sample_id in condition2input_ids [condition] ],
+		conditions = [ condition  for condition in conditions for sample_id in condition2sample_ids.get(condition, []) ],
+		ip_ids     = [ sample_ids for condition in conditions for sample_id in condition2sample_ids.get(condition, []) ],
+		input_ids  = [ sample_ids for condition in conditions for sample_id in condition2input_ids .get(condition, []) ],
 	run:
 		df               = pd.DataFrame()
 		df['SampleID'  ] = params.ip_ids

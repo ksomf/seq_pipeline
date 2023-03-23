@@ -10,29 +10,39 @@ import pybedtools as bedtools
 from itertools import chain
 
 configfile: 'config.yml'
-defaults = { 'sra_dir'         : '01_sra_download'
-           , 'fastq_dir'       : '02_fastq'
-           , 'align_dir'       : '03_aligned'
-           , 'peakcalling_dir' : '04_peakcalling'
-           , 'metadata_file'   : 'metadata.tsv'
-           , 'reference_dir'   : 'reference'       }
+defaults = { 'sra_dir'              : '01_sra_download'
+           , 'fastq_dir'            : '02_fastq'
+           , 'align_dir'            : '03_aligned'
+           , 'peakcalling_dir'      : '04_peakcalling'
+           , 'metadata_file'        : 'metadata.tsv'
+           , 'reference_dir'        : 'reference'
+           , 'treatment_conditions' : []
+           , 'control_condition'    : None }
 for k, v in defaults.items():
 	if k not in config:
 		config[k] = v
 need_to_download = config['metadata_files'] == 'srr'
 need_to_align    = need_to_download | (config['metadata_files'] == 'fastq')
 need_to_peakcall = config['pipeline'] == 'ripseq'
+need_to_stamp    = config['pipeline'] == 'stamp'
 
 metadata = pd.read_csv(config['metadata'], sep='\t')
 conditions = list(set(metadata['condition']))
 sample_ids = metadata['sample_id']
-ip_sample_id2input_sample_id = dict(zip(metadata['sample_id'],metadata['matching_input_control']))
 
-metadata_ip_only    = metadata[ metadata['method']=='IP' ]
-metadata_input_only = metadata[ metadata['method']=='Input' ]
-sample_ids_ip       = metadata_ip_only['sample_id']
-condition2sample_ids = { g:df['sample_id'].to_list() for g, df in metadata_ip_only.groupby(['condition']) }
-condition2input_ids  = { g:[ip_sample_id2input_sample_id[s] for s in condition2sample_ids[g]] for g in condition2sample_ids.keys() }
+ip_sample_id2input_sample_id = dict()
+metadata_ip_only    = []
+metadata_input_only = []
+sample_ids_ip       = []
+condition2sample_ids = { g:df['sample_id'].to_list() for g, df in metadata.groupby(['condition']) }
+condition2input_ids  = {}
+if config['pipeline'] == 'ripseq':
+	ip_sample_id2input_sample_id = dict(zip(metadata['sample_id'],metadata['matching_input_control']))
+	metadata_ip_only    = metadata[ metadata['method']=='IP' ]
+	metadata_input_only = metadata[ metadata['method']=='Input' ]
+	sample_ids_ip       = metadata_ip_only['sample_id']
+	condition2sample_ids = { g:df['sample_id'].to_list() for g, df in metadata_ip_only.groupby(['condition']) }
+	condition2input_ids  = { g:[ip_sample_id2input_sample_id[s] for s in condition2sample_ids[g]] for g in condition2sample_ids.keys() }
 
 sample_readlist = []
 sample_id2reads = {}
@@ -95,6 +105,11 @@ rule dev:
 	input:
 		plot_dir=os.path.join(config['peakcalling_dir'],'analysis','summary.txt'),
 		#aligned_bam=[os.path.join(config['align_dir'], f'{sample_id}.star_aligned.bam') for sample_id in sample_ids]
+		qc='multiqc_report.html',
+
+rule dev2:
+	input:
+		qc='multiqc_report.html',
 
 #TODO: Make the blacklist use the standard chromosome names by using the chrom report to map
 #TODO: Get QC working
