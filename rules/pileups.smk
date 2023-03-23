@@ -16,9 +16,9 @@ rule join_peakcall_data:
 
 rule join_diffbind_data:
 	input:
-		pepr_peaks     = os.path.join(config['peakcalling_dir'],'pepr','merged_peaks.tsv'),
-		thor_peaks     = os.path.join(config['peakcalling_dir'],'thor','merged_peaks.tsv'),
-		diffbind_peaks =  os.path.join(config['peakcalling_dir'],'diffbind'       ,f'diffpeaks.tsv'),
+		pepr_peaks     = os.path.join(config['peakcalling_dir'],'pepr'    ,'merged_peaks.tsv'),
+		thor_peaks     = os.path.join(config['peakcalling_dir'],'thor'    ,'merged_peaks.tsv'),
+		diffbind_peaks = os.path.join(config['peakcalling_dir'],'diffbind','merged_peaks.tsv'),
 	output:
 		diffbind_peaks = os.path.join(config['peakcalling_dir'],'analysis','diffbind_peaks.tsv'),
 	run:
