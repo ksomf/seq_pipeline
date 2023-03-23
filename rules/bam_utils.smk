@@ -41,8 +41,14 @@ rule filter_bam:
 	shell: 'samtools view -q {params.phred_quality_cuttoff} -F {params.fail_flag} -f {params.pass_flag} -L {input.whitelist} -o {output} {input.sorted_file[0]}'
 
 rule bam2bed:
-	input:  os.path.join('{path}', '{bamfile}.bam'),
+	input:             os.path.join('{path}', '{bamfile}.bam'),
 	output: temp(local(os.path.join('{path}', '{bamfile}.bam2bed.bed'))),
 	conda: '../envs/samtools.yml'
+	threads: 2
 	shell: 'bedtools bamtobed -i {input} > {output}'
 
+rule bed2weirdsort:
+	input:             os.path.join('{path}', '{bedfile}.bed'),
+	output: temp(local(os.path.join('{path}', '{bedfile}.weirdsort.bed'))),
+	conda: '../envs/samtools.yml'
+	shell: 'sort -k 1,1 -k 3,3n -k 2,2n -k 6,6 {input} > {output}' #sort by chrom, end, start, strand

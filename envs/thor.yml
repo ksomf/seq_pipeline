@@ -1,8 +1,15 @@
 name: seq-pipeline-thor
 channels:
   - bioconda
+  - sssdgc
   - conda-forge
 dependencies:
   - python=3
-  - ucsc-bedgraphtobigwig # Installs libpng12
-  - rgt
+  - cython
+  - numpy
+  - scipy
+  - png # Installs libpng12.so.0 from sssdgc
+  - ucsc-bedgraphtobigwig
+  - pip
+  - pip:
+    - rgt

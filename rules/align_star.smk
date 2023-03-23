@@ -52,7 +52,7 @@ rule star_align_pair_end:
 		output_prefix=lambda wildcards, output: output['aligned_file'].replace('Aligned.out.bam',''),
 		output_path=lambda wildcards, output: os.path.dirname(output['aligned_file']),
 		overhang=100, #maxreadlength - 1 ideally
-	threads: workflow.cores
+	threads: min(workflow.cores,32)
 	conda: '../envs/align_star.yml'
 	shell:
 		'''

@@ -1,5 +1,9 @@
 # snakemake --cores 32 --use-conda --conda-frontend mamba dev
 
+#TODO(KIM): Should I reduce all genomics to the standard chromosomes?
+#TODO(KIM): Decide if I should delete diffreps and multigps
+
+
 import numpy      as np
 import pandas     as pd
 import pybedtools as bedtools
@@ -18,7 +22,6 @@ for k, v in defaults.items():
 need_to_download = config['metadata_files'] == 'srr'
 need_to_align    = need_to_download | (config['metadata_files'] == 'fastq')
 need_to_peakcall = config['pipeline'] == 'ripseq'
-
 
 metadata = pd.read_csv(config['metadata'], sep='\t')
 conditions = list(set(metadata['condition']))
@@ -57,13 +60,13 @@ if need_to_peakcall:
 	multiqc_inputs += [ os.path.join(config["peakcalling_dir"], f'{sample_id}_full_peaks.xls') for sample_id in sample_ids_ip ]
 
 wildcard_constraints:
-	sample_id   = '|'.join(sample_ids),
-	sample1_id  = '|'.join(sample_ids),
-	sample2_id  = '|'.join(sample_ids),
-	aligner     = '|'.join(['star','bowtie2']),
-	condition   = '|'.join(conditions),
-	condition1  = '|'.join(conditions),
-	condition2  = '|'.join(conditions),
+	sample_id  = '|'.join(sample_ids),
+	sample1_id = '|'.join(sample_ids),
+	sample2_id = '|'.join(sample_ids),
+	aligner    = '|'.join(['star','bowtie2']),
+	condition  = '|'.join(conditions),
+	condition1 = '|'.join(conditions),
+	condition2 = '|'.join(conditions),
 
 include: 'rules/assemblies.smk'
 include: 'rules/bam_utils.smk'

@@ -25,7 +25,7 @@ rule genrich2tsv:
 		genrich_conditions = conditions,
 		genrich_cuttoff    = 1e-5,
 	run:
-		genrich_colnames <- [ 'chrom', 'start', 'end', 'name', 'scaled_auc', 'strand', 'auc', 'stat', 'qvalue', 'peak' ]
+		genrich_colnames = [ 'chrom', 'start', 'end', 'name', 'scaled_auc', 'strand', 'auc', 'stat', 'qvalue', 'peak' ]
 		res = []
 		for genrich_filename, genrich_condition in zip(input.genrich_filenames, params.genrich_conditions):
 			df                = pd.read_csv(genrich_filename, sep='\t', names=genrich_colnames)
@@ -39,7 +39,7 @@ rule genrich2tsv:
 			df['stat_type']   = 'pvalue'
 			res.append(df)
 		res = pd.concat(res)
-		res = res[['chrom', 'start', 'end', 'strand', 'name', 'method', 'condtion', 'stat', 'stat_type', 'significant']]
+		res = res[['chrom', 'start', 'end', 'strand', 'name', 'method', 'condition', 'siblings', 'stat', 'stat_type', 'significant']]
 		res.to_csv( output.condition_peaks, sep='\t', index=False )
 
 

@@ -1,7 +1,7 @@
 from itertools import combinations
 
-
-macs2_type2pvalue = { 'relaxed':1e-3 #Suitable to get 'noisy' peaks for IDR
+macs2_type2pvalue = { 'normal':1e-5
+                    , 'relaxed':1e-3 #Suitable to get 'noisy' peaks for IDR
                     , 'full':1 }
 wildcard_constraints:
 	peak_types = '|'.join(macs2_type2pvalue.keys())
@@ -170,7 +170,6 @@ rule idr_combine:
 	shell: 'cat {input} > {output}'
 
 from collections import Counter
-
 rule idr2tsv:
 	input:
 		idr_filenames = [ os.path.join(config['peakcalling_dir'],'idr',f'{condition}_{sample1_id}_{sample2_id}_true.tsv') for condition in conditions for sample1_id, sample2_id in combinations(condition2sample_ids[condition], 2) ],
@@ -188,15 +187,15 @@ rule idr2tsv:
 			df                = pd.read_csv(idr_filename, sep='\t', names=idr_colnames)
 			df['strand']      = np.where( df['strand'] == '.', '*', df['strand'] )
 			df['stat']         = 2**(df['stat']/-125)
-			df['name']        = [ '_'.join(['idr', idr_condition, idr_element, i]) for i,name in enumerate(df['name']) ]
+			df['name']        = [ '_'.join(['idr', idr_condition, idr_element, str(i)]) for i,name in enumerate(df['name']) ]
 			df['siblings']    = condition2counts[idr_condition]
 			df['method']      = 'macs2-idr'
 			df['condition']   = idr_condition
 			df['significant'] = df['stat'] < params.idr_cuttoff
-			df['stat']        = 'idr'
+			df['stat_type']   = 'idr'
 			res.append(df)
 		res = pd.concat(res)
-		res = res[['chrom', 'start', 'end', 'strand', 'name', 'method', 'condtion', 'stat', 'stat_type', 'significant' ]]
+		res = res[['chrom', 'start', 'end', 'strand', 'name', 'method', 'condition', 'siblings', 'stat', 'stat_type', 'significant' ]]
 		res.to_csv( output.condition_peaks, sep='\t', index=False )
 
 

@@ -3,7 +3,5 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - python=3
-  - r
-  - r-tidyverse
   - bioconductor-diffbind
+  - r-tidyverse

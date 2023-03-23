@@ -22,7 +22,7 @@ rule thor_diffbind:
 		cond2_nl     = lambda wildcards, input: '\n'.join(input.cond2_ips),
 		cond1_inl    = lambda wildcards, input: '\n'.join(input.cond1_inputs),
 		cond2_inl    = lambda wildcards, input: '\n'.join(input.cond2_inputs),
-	threads: 8
+	threads: len(sample_ids)
 	conda: '../envs/thor.yml'
 	shell:
 		'''
@@ -43,7 +43,32 @@ rule thor_diffbind:
 
 			cat {output.config}
 
+			export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:${{LD_LIBRARY_PATH:-}}" # For libpng12.so.0
+
 			rgt-THOR --name       {params.prefix}     \
 			         --output-dir {params.output_dir} \
-			         {output.config} || exit 0 # This command will fail because of it's internal file handles
+			         {output.config}
 			'''
+
+rule thor2tsv:
+	input:
+		thor_peaks = [ os.path.join( config['peakcalling_dir'], 'thor', 'run', f'{condition}_vs_{config["control_condition"]}-diffpeaks.bed' ) for condition in config['treatment_conditions'] ],
+	output:
+		diffbind_peaks = os.path.join(config['peakcalling_dir'],'thor','merged_peaks.tsv'),
+	params:
+		thor_conditions = config['treatment_conditions'],
+	run:
+		broadpeak_colnames <- [ 'chrom', 'start', 'end', 'name', 'stat', 'strand', 'start2', 'end2', 'pixel_like', 'unknown1', 'unknown2' ]
+		res = []
+		for thor_filename, thor_condition in zip(input.thor_peaks, params.thor_conditions):
+			df                = pd.read_csv(thor_filename, sep='\t', names=broadpeak_colnames)
+			df['name']        = [ '_'.join(['thor', thor_condition, name]) for name in df['name'] ]
+			df['method']      = 'thor'
+			df['condition']   = thor_condition
+			df['significant'] = True
+			df['stat']        = 'score'
+			res.append(df)
+		res = pd.concat(res)
+		res = res[['chrom', 'start', 'end', 'strand', 'name', 'method', 'condtion', 'stat', 'stat_type', 'significant' ]]
+		res.to_csv( output.diffbind_peaks, sep='\t', index=False )
+

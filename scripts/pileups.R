@@ -12,7 +12,7 @@ LERP <- function(y1, y2, x){y1 + (y2-y1)*x}
 #bam_files       <- list.files('../03_aligned/', full.names=TRUE ) %>% .[str_ends(.,'star_aligned.bam')]
 #bam_index_files <- list.files('../03_aligned/', full.names=TRUE ) %>% .[str_ends(.,'star_aligned.bam.bai')]
 #library_sizes   <- '../04_peakcalling/diffbind/norm.tsv'
-#gff_filename    <- '../../reference/hg38.gff'
+#gtf_filename    <- '../reference/hg38.gtf'
 
 #sample_ids            <- list.files('../03_aligned/', full.names=FALSE) %>% .[str_ends(.,'star_aligned.bam')] %>% str_remove('.star_aligned.bam')
 #treatment_conditions  <- 'MAVS'
@@ -28,7 +28,7 @@ diffbind_peaks  <- snakemake@input[['diffbind_peaks' ]]
 bam_files       <- snakemake@input[['bam_files'      ]]
 bam_index_files <- snakemake@input[['bam_index_files']]
 library_sizes   <- snakemake@input[['library_sizes'  ]]
-gff_filename    <- snakemake@input[['gff'            ]]
+gtf_filename    <- snakemake@input[['gtf'            ]]
 
 treatment_conditions  <- snakemake@params[['treatment_conditions']]
 control_condition     <- snakemake@params[['control_condition'   ]]
@@ -62,33 +62,29 @@ name_matcher <- function(m){
   }
   res
 }
-gff_columns <- c( 'chrom', 'label', 'level', 'start', 'end', 'score', 'strand', 'something', 'metadata' )
-gff_full <- read_tsv( gff_filename, col_names=gff_columns, comment='#', show_col_types=FALSE )
-gff_genes <- gff_full %>%
-  filter( str_starts( metadata, 'ID=gene:' ) ) %>%
-  mutate(name=map_chr(metadata, name_matcher)) %>% 
-  mutate(parent_gene=map_chr(metadata, ~str_match( .x, 'ID=gene:([^;]+);' )[2] )) %>%
-  mutate(label=ifelse(name!='', paste0(parent_gene, ' - ', name), parent_gene)) %>% 
-  select(-metadata)
 
-transcript2gene <- gff_full %>%
-  filter( str_starts( metadata, 'ID=transcript:' ) ) %>%
-  mutate(parent_gene=map_chr(metadata, ~str_match( .x, 'Parent=gene:([^;]+);' )[2] )) %>% 
-  mutate(metadata=map_chr(metadata, ~str_match( .x, 'ID=transcript:([^;]+);' )[2] )) %>%
-  select(metadata, parent_gene) %>%
+gtf <- rtracklayer::import(gtf_filename)
+gtf_genes <- gtf %>%
+  subset( type=='gene' ) %>% 
+  as.data.frame() %>% 
+  mutate(label=ifelse(is.na(Name), gene_id, paste0(gene_id, ' - ', Name))) %>% 
+  select(seqnames, start, end, width, strand, type, gene_id, biotype, description, version) %>% 
+  mutate( num_siblings=1, cannonical=TRUE )
+transcripts2gene  <- gtf %>% 
+  subset( type=='transcript') %>% 
+  as.data.frame() %>% 
+  select(gene_id, transcript_id) %>% 
   distinct() %>% 
-  rename(parent_transcript='metadata') %>% 
-  group_by(parent_gene) %>% 
-  mutate( num_siblings=n()
-        , cannonical=seq_len(n()) == 1 )
+  group_by(gene_id) %>% 
+  mutate( num_siblings=n(), cannonical=seq_len(n()) == 1 )
+gtf_exons <- gtf %>%
+  subset( type=='exon' ) %>% 
+  as.data.frame() %>% 
+  select(seqnames, start, end, width, strand, type, gene_id, transcript_id, constitutive, exon_id) %>% 
+  left_join( transcripts2gene, by=c('gene_id', 'transcript_id') )
 
-gff_exons <- gff_full %>%
-  filter( str_starts( metadata, 'Parent=transcript:' ) ) %>%
-  mutate(parent_transcript=map_chr(metadata, ~str_match( .x, 'Parent=transcript:([^;]+);' )[2] )) %>% 
-  left_join(transcript2gene, by='parent_transcript') %>% 
-  select(-parent_transcript, -metadata)
-
-gff <- bind_rows( list(gene=gff_genes, exons=gff_exons), .id='meta_level' )
+common_gtf_columns <- c('seqnames', 'start', 'end', 'width', 'strand', 'type', 'gene_id', 'num_siblings', 'cannonical')
+gtf <- rbind( select(gtf_genes, all_of(common_gtf_columns)), select(gtf_exons, all_of(common_gtf_columns)) )
 
 # Read in DiffBind results
 #broadpeak_colnames <- c( 'chrom', 'start', 'end', 'name', 'score', 'strand', 'enrichment', 'p_value', 'q_value' )
