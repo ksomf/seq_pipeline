@@ -1,13 +1,15 @@
 import os
 
 assembly2params = {
-	'hg38': { 'species'         :'homo_sapiens'
-	        , 'fasta'           :'https://ftp.ensembl.org/pub/release-109/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz'
-	        , 'gff'             :'https://ftp.ensembl.org/pub/release-109/gff3/homo_sapiens/Homo_sapiens.GRCh38.109.gff3.gz'
-	        , 'chip_blacklist'  :'http://mitra.stanford.edu/kundaje/akundaje/release/blacklists/hg38-human/hg38.blacklist.bed.gz'
-	        , 'tss'             :'https://www.encodeproject.org/files/ENCFF493CCB/@@download/ENCFF493CCB.bed.gz'
-	        , 'promoters'       :'https://www.encodeproject.org/files/ENCFF140XLU/@@download/ENCFF140XLU.bed.gz'
-	        , 'enhancers'       :'https://www.encodeproject.org/files/ENCFF212UAV/@@download/ENCFF212UAV.bed.gz' }
+	'hg38': { 'species'        : 'homo_sapiens'
+	        , 'ensembl_fasta'  : 'https://ftp.ensembl.org/pub/release-109/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz'
+	        , 'fasta'          : 'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz'
+	        , 'ensembl_gff'    : 'https://ftp.ensembl.org/pub/release-109/gff3/homo_sapiens/Homo_sapiens.GRCh38.109.gff3.gz'
+	        , 'gff'            : 'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_full_analysis_set.refseq_annotation.gff.gz'
+	        , 'chip_blacklist' : 'http://mitra.stanford.edu/kundaje/akundaje/release/blacklists/hg38-human/hg38.blacklist.bed.gz'
+	        , 'tss'            : 'https://www.encodeproject.org/files/ENCFF493CCB/@@download/ENCFF493CCB.bed.gz'
+	        , 'promoters'      : 'https://www.encodeproject.org/files/ENCFF140XLU/@@download/ENCFF140XLU.bed.gz'
+	        , 'enhancers'      : 'https://www.encodeproject.org/files/ENCFF212UAV/@@download/ENCFF212UAV.bed.gz' }
 }
 
 wildcard_constraints:
@@ -32,7 +34,7 @@ rule download_report:
 	shell: 'curl --location {params.url} | zcat > {output}'
 
 rule download_blacklist:
-	output: os.path.join(config['reference_dir'],'{assembly}_blacklist.unsorted.named_chromosomes.bed'),
+	output: os.path.join(config['reference_dir'],'{assembly}_blacklist.unsorted.bed'), #.named_chromosomes.bed'), #necessary for ensembl naming
 	params: url=lambda w: assembly2params[w.assembly]['chip_blacklist']
 	conda: '../envs/assemblies.yml'
 	shell: 'curl --location {params.url} | zcat > {output}'
