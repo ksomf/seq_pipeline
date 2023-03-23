@@ -1,9 +1,6 @@
 install.packages(c( 'ggplot2', 'ggthemes', 'tidyverse', 'furrr', 'BiocManager', 'devtools' ))
 BiocManager::install(c( 'GenomicRanges', 'Rsamtools', 'DiffBind', 'DESeq2', 'edgeR', 'GenomicFeatures' )) #NOTE(KIM): Might need to be run more than once. Yay software quality!
 
-
-
-
 # DEQ
 BiocManager::install(c( 'GenomicRanges', 'Rsamtools', 'DESeq2', 'edgeR', 'GenomicFeatures', 'Rsubread' ))
 

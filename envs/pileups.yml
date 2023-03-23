@@ -10,3 +10,5 @@ dependencies:
   - r-furrr
   - bioconductor-genomicranges
   - bioconductor-Rsamtools
+  - bioconductor-rtracklayer
+  - bioconductor-genomicfeatures

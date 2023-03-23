@@ -18,14 +18,14 @@ rule piranha2tsv:
 	output:
 		diffbind_peaks =   os.path.join(config['peakcalling_dir'],'piranha','merged_peaks.tsv'),
 	params:
-		pirahna_conditions = [ condition for condition in conditions for sample_id in condition2sample_ids[condition] ],
+		piranha_conditions = [ condition for condition in conditions for sample_id in condition2sample_ids[condition] ],
 	run:
 		piranha_colnames = [ 'chrom', 'start', 'end', 'name', 'score', 'strand', 'stat', 'unknown' ]
 		res = []
-		condition2counts = Counter(params.idr_conditions)
+		condition2counts = Counter(params.piranha_conditions)
 		for piranha_filename, piranha_condition in zip(input.piranha_peaks, params.piranha_conditions):
 			df                = pd.read_csv(piranha_filename, sep='\t', names=piranha_colnames)
-			df['name']        = [ '_'.join(['piranha', piranha_condition, i]) for i,name in enumerate(df['name']) ]
+			df['name']        = [ '_'.join(['piranha', piranha_condition, str(i)]) for i,name in enumerate(df['name']) ]
 			df['method']      = 'piranha'
 			df['siblings']    = condition2counts[piranha_condition]
 			df['condition']   = piranha_condition
@@ -33,5 +33,5 @@ rule piranha2tsv:
 			df['stat_type']   = 'pvalue'
 			res.append(df)
 		res = pd.concat(res)
-		res = res[['chrom', 'start', 'end', 'strand', 'name', 'method', 'condtion', 'siblings', 'stat', 'stat_type', 'significant' ]]
+		res = res[['chrom', 'start', 'end', 'strand', 'name', 'method', 'condition', 'siblings', 'stat', 'stat_type', 'significant' ]]
 		res.to_csv( output.diffbind_peaks, sep='\t', index=False )

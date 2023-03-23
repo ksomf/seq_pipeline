@@ -20,10 +20,10 @@ output_norm_file  <- snakemake@output[['norm']]
 control_condition <- snakemake@params[['condition2']]
 threads           <- snakemake@threads
 
-#input_param_file  <- '04_peakcalling/diffbind/MAVS_vs_d103-467_params.tsv'
-#output_cor_file   <- '04_peakcalling/diffbind/MAVS_vs_d103-467_cor.pdf'
-#output_peak_file  <- '04_peakcalling/diffbind/MAVS_vs_d103-467_diffpeaks.tsv'
-#output_norm_file  <- '04_peakcalling/diffbind/MAVS_vs_d103-467_norms.tsv'
+#input_param_file  <- '04_peakcalling/diffbind/params.tsv'
+#output_cor_file   <- '04_peakcalling/diffbind/cor.pdf'
+#output_peak_file  <- '04_peakcalling/diffbind/diffpeaks.tsv'
+#output_norm_file  <- '04_peakcalling/diffbind/norms.tsv'
 #control_condition <- 'd103-467'
 #threads           <- 8
 

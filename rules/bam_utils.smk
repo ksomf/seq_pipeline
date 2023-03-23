@@ -40,6 +40,13 @@ rule filter_bam:
 	conda: '../envs/samtools.yml'
 	shell: 'samtools view -q {params.phred_quality_cuttoff} -F {params.fail_flag} -f {params.pass_flag} -L {input.whitelist} -o {output} {input.sorted_file[0]}'
 
+rule bam_reads:
+	input:  os.path.join('{path}', '{bam}.bam'),
+	output: os.path.join('{path}', '{bam}.bam2counts.txt'),
+	params:
+	conda: '../envs/samtools.yml'
+	shell: 'samtools view -c {input} > {output}'
+
 rule bam2bed:
 	input:             os.path.join('{path}', '{bamfile}.bam'),
 	output: temp(local(os.path.join('{path}', '{bamfile}.bam2bed.bed'))),

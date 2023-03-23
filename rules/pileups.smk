@@ -18,7 +18,7 @@ rule join_diffbind_data:
 	input:
 		pepr_peaks     = os.path.join(config['peakcalling_dir'],'pepr'    ,'merged_peaks.tsv'),
 		thor_peaks     = os.path.join(config['peakcalling_dir'],'thor'    ,'merged_peaks.tsv'),
-		diffbind_peaks = os.path.join(config['peakcalling_dir'],'diffbind','merged_peaks.tsv'),
+		#diffbind_peaks = os.path.join(config['peakcalling_dir'],'diffbind','merged_peaks.tsv'),
 	output:
 		diffbind_peaks = os.path.join(config['peakcalling_dir'],'analysis','diffbind_peaks.tsv'),
 	run:
@@ -27,14 +27,25 @@ rule join_diffbind_data:
 		res = pd.concat([ df_pepr, df_thor ])
 		res.to_csv( output.diffbind_peaks, sep='\t', index=False )
 
+rule get_library_sizes:
+	input:  [ sample_id2bam[sample_id].replace('.bam','.bam2counts.txt') for sample_id in sample_ids ],
+	output: os.path.join(config['peakcalling_dir'],'analysis','library_sizes.tsv'),
+	params:
+		sample_ids = sample_ids
+	run:
+		res = []
+		for sample_id, file in zip(params.sample_ids, input):
+			res.append({'sample_id':sample_id, 'library_size':int(open(file, 'r').read())})
+		pd.DataFrame(res).to_csv( output[0], sep='\t', index=False )
+
 rule plot_pileups:
 	input:
 		condition_peaks = os.path.join(config['peakcalling_dir'],'analysis','condition_peaks.tsv'),
 		diffbind_peaks  = os.path.join(config['peakcalling_dir'],'analysis','diffbind_peaks.tsv'),
-		bam_files         = [ sample_id2bam[sample_id]                            for sample_id in sample_ids ],
-		bam_index_files   = [ sample_id2bam[sample_id].replace('.bam','.bam.bai') for sample_id in sample_ids ],
-		library_sizes    =   os.path.join(config['peakcalling_dir'],'diffbind',f'norm.tsv'),
-		gff               =   os.path.join(config['reference_dir'], config['assembly']+'.gff'),
+		bam_files       = [ sample_id2bam[sample_id]                            for sample_id in sample_ids ],
+		bam_index_files = [ sample_id2bam[sample_id].replace('.bam','.bam.bai') for sample_id in sample_ids ],
+		library_sizes   =   os.path.join(config['peakcalling_dir'],'analysis','library_sizes.tsv'),
+		gff             =   os.path.join(config['reference_dir'], config['assembly']+'.gff'),
 	output:
 		plot_dir     = directory(os.path.join(config['peakcalling_dir'],'analysis','plots')),
 		summary_file =           os.path.join(config['peakcalling_dir'],'analysis','summary.txt'),

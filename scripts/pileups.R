@@ -3,188 +3,113 @@ library(Rsamtools)
 library(ggplot2)
 library(ggthemes)
 library(furrr)
+library(rtracklayer)
 library(tidyverse)
 
 LERP <- function(y1, y2, x){y1 + (y2-y1)*x}
 
-#condition_peaks <- '../04_peakcalling/analysis/condition_peaks.tsv'
-#diffbind_peaks  <- '../04_peakcalling/analysis/diffbind_peaks.tsv'
-#bam_files       <- list.files('../03_aligned/', full.names=TRUE ) %>% .[str_ends(.,'star_aligned.bam')]
-#bam_index_files <- list.files('../03_aligned/', full.names=TRUE ) %>% .[str_ends(.,'star_aligned.bam.bai')]
-#library_sizes   <- '../04_peakcalling/diffbind/norm.tsv'
-#gtf_filename    <- '../reference/hg38.gtf'
+condition_peaks <- '04_peakcalling/analysis/condition_peaks.tsv'
+diffbind_peaks  <- '04_peakcalling/analysis/diffbind_peaks.tsv'
+bam_files       <- list.files('03_aligned/', full.names=TRUE ) %>% .[str_ends(.,'star_aligned.bam')]
+bam_index_files <- list.files('03_aligned/', full.names=TRUE ) %>% .[str_ends(.,'star_aligned.bam.bai')]
+library_sizes   <- '04_peakcalling/analysis/library_sizes.tsv'
+gtf_filename    <- '../reference/hg38.gtf'
 
-#sample_ids            <- list.files('../03_aligned/', full.names=FALSE) %>% .[str_ends(.,'star_aligned.bam')] %>% str_remove('.star_aligned.bam')
-#treatment_conditions  <- 'MAVS'
-#control_condition     <- 'd103-467'
-#metadata_filename     <- '../metadata.tsv'
+sample_ids            <- list.files('03_aligned/', full.names=FALSE) %>% .[str_ends(.,'star_aligned.bam')] %>% str_remove('.star_aligned.bam')
+treatment_conditions  <- 'MAVS'
+control_condition     <- 'd103-467'
+metadata_filename     <- 'metadata.tsv'
 
-#output_dir            <- '../04_peakcalling/analysis/plots/'
+output_dir            <- '04_peakcalling/analysis/plots/'
 
-#threads               <- 32
+threads               <- 32
 
-condition_peaks <- snakemake@input[['condition_peaks']]
-diffbind_peaks  <- snakemake@input[['diffbind_peaks' ]]
-bam_files       <- snakemake@input[['bam_files'      ]]
-bam_index_files <- snakemake@input[['bam_index_files']]
-library_sizes   <- snakemake@input[['library_sizes'  ]]
-gtf_filename    <- snakemake@input[['gtf'            ]]
-
-treatment_conditions  <- snakemake@params[['treatment_conditions']]
-control_condition     <- snakemake@params[['control_condition'   ]]
-metadata_filename     <- snakemake@params[['metadata_filename'   ]]
-sample_ids            <- snakemake@params[['sample_ids'          ]]
-
-output_dir              <- snakemake@output[['plot_dir']]
-
-threads                 <- snakemake@threads
+#condition_peaks <- snakemake@input[['condition_peaks']]
+#diffbind_peaks  <- snakemake@input[['diffbind_peaks' ]]
+#bam_files       <- snakemake@input[['bam_files'      ]]
+#bam_index_files <- snakemake@input[['bam_index_files']]
+#library_sizes   <- snakemake@input[['library_sizes'  ]]
+#gtf_filename    <- snakemake@input[['gtf'            ]]
+#
+#treatment_conditions  <- snakemake@params[['treatment_conditions']]
+#control_condition     <- snakemake@params[['control_condition'   ]]
+#metadata_filename     <- snakemake@params[['metadata'            ]]
+#sample_ids            <- snakemake@params[['sample_ids'          ]]
+#
+#output_dir              <- snakemake@output[['plot_dir']]
+#
+#threads                 <- snakemake@threads
 
 
 plan(multisession, workers=threads)
 #TODO normalise bam files against each other using RPKM
 
-# Read metadata
+print('Reading Metadata')
 ordered_conditions <- c(treatment_conditions, control_condition)
 metadata <- read_tsv( metadata_filename, show_col_types=FALSE )
 sample2condition <- select(metadata, sample_id, condition) %>% deframe()
 sample2input     <- select(metadata, sample_id, method   ) %>% mutate(method=method=='Input') %>% deframe()
 condition2count  <- table(metadata$condition) / 2 #NOTE(KIM): Assuming equal input and ip
 
+sample2libsize_factor <- read_tsv(library_sizes) %>% deframe()
+sample2libsize_factor <- sample2libsize_factor / mean(sample2libsize_factor)
+
 conds      = unique(sample2condition)
 num_conditions = length(conds)
 condition_offset = set_names((seq_along(conds) - 1)*-3, conds)
 
-# Read in Annotation
-name_matcher <- function(m){
-  res <- ''
-  if( str_detect(m, 'Name=([^;]+);')){
-    res <- str_match(m, 'Name=([^;]+);')[2]
-  }
-  res
-}
-
+print('Reading GTF')
+print(sessionInfo())
 gtf <- rtracklayer::import(gtf_filename)
 gtf_genes <- gtf %>%
   subset( type=='gene' ) %>% 
   as.data.frame() %>% 
   mutate(label=ifelse(is.na(Name), gene_id, paste0(gene_id, ' - ', Name))) %>% 
-  select(seqnames, start, end, width, strand, type, gene_id, biotype, description, version) %>% 
-  mutate( num_siblings=1, cannonical=TRUE )
+  select(any_of(c('seqnames', 'start', 'end', 'width', 'strand', 'type', 'gene_id', 'label', 'gene_biotype', 'biotype', 'description', 'version'))) %>% 
+  mutate( num_siblings=1, cannonical=TRUE ) %>% 
+  rename( gene_biotype='biotype' )
 transcripts2gene  <- gtf %>% 
   subset( type=='transcript') %>% 
   as.data.frame() %>% 
   select(gene_id, transcript_id) %>% 
   distinct() %>% 
   group_by(gene_id) %>% 
-  mutate( num_siblings=n(), cannonical=seq_len(n()) == 1 )
+  mutate( num_siblings=n(), cannonical=seq_len(n()) == 1 ) %>% 
+  left_join(select(gtf_genes, gene_id, label, biotype), by='gene_id')
 gtf_exons <- gtf %>%
   subset( type=='exon' ) %>% 
   as.data.frame() %>% 
-  select(seqnames, start, end, width, strand, type, gene_id, transcript_id, constitutive, exon_id) %>% 
+  select(any_of(c('seqnames', 'start', 'end', 'width', 'strand', 'type', 'gene_id', 'transcript_id', 'constitutive', 'exon_id'))) %>% 
   left_join( transcripts2gene, by=c('gene_id', 'transcript_id') )
-
-common_gtf_columns <- c('seqnames', 'start', 'end', 'width', 'strand', 'type', 'gene_id', 'num_siblings', 'cannonical')
+common_gtf_columns <- c('seqnames', 'start', 'end', 'width', 'strand', 'type', 'gene_id', 'label', 'biotype', 'num_siblings', 'cannonical')
 gtf <- rbind( select(gtf_genes, all_of(common_gtf_columns)), select(gtf_exons, all_of(common_gtf_columns)) )
 
-# Read in DiffBind results
-#broadpeak_colnames <- c( 'chrom', 'start', 'end', 'name', 'score', 'strand', 'enrichment', 'p_value', 'q_value' )
-#pepr_peaks <- map2( pepr_peaks_filename, treatment_conditions, function(pepr_file, treatment_condition){
-#  x <- read_tsv( pepr_file, col_names=broadpeak_colnames, show_col_types=FALSE ) %>%
-#    mutate( strand=ifelse(strand == '.', '*', strand) )
-#  GRanges( seqnames=x$chrom
-#         , ranges=IRanges(x$start, end=x$end, names=paste( 'pepr', condition, x$name, sep='_' ))
-#         , strand=x$strand
-#         , p_value=x$p_value
-#         , alpha=1.0
-#         , sig=x$p_value < pepr_cuttoff
-#         , method='pepr'
-#         , condition=treatment_condition )  
-#}) %>% do.call('c',.)
-#
-#thor_colnames <- c( 'chrom', 'start', 'end', 'name', 'score', 'strand', 'enrichment', 'p_value', 'q_value' )
-#thor_peaks <- map2( thor_peaks_filename, treatment_conditions, function(thor_file, treatment_condition){
-#  x <- read_tsv( thor_file, col_names=broadpeak_colnames, show_col_types=FALSE ) %>%
-#    mutate( strand=ifelse(strand == '.', '*', strand) )
-#  GRanges( seqnames=x$chrom
-#         , ranges=IRanges(x$start, end=x$end, names=paste( 'thor', condition, x$name, sep='_' ))
-#         , strand=x$strand
-#         , p_value=x$p_value
-#         , alpha=1.0
-#         , sig=x$p_value < thor_cuttoff
-#         , method='thor'
-#         , condition=treatment_condition )  
-#}) %>% do.call('c',.)
-#
-#x <- read_tsv( diffbind_peaks_filename, show_col_types=FALSE ) %>%
-#    mutate( strand=ifelse(strand == '.', '*', strand) )
-#diffbind_peaks <- GRanges( seqnames=x$chrom
-#           , ranges=IRanges(x$start, end=x$end, names=paste( 'diffbind', condition, x$name, sep='_' ))
-#           , strand=x$strand
-#           , p_value=x$p_value
-#           , alpha=1.0
-#           , sig=x$p_value < diffbind_cuttoff
-#           , method='macs2-diffbind'
-#           , condition=treatment_condition )  
-#
-#de_peaks        <- c(pepr_peaks, thor_peaks, diffbind_peaks)
-
-de_peaks        <- read_tsv(diffbind_peaks)
+print('Reading Diffbind Results')
+de_peaks        <- read_tsv(diffbind_peaks) %>% mutate(siblings=1) %>% rename(chrom='seqnames')
+de_peaks_gr     <- makeGRangesFromDataFrame( de_peaks, keep.extra.columns=TRUE )
 de_search_peaks <- de_peaks
 
-# Read single condition peaks
-#genrich_colnames <- c( 'chrom', 'start', 'end', 'name', 'scaled_auc', 'strand', 'auc', '-log10(pvalue)', 'qvalue', 'peak' )
-#genrich_peaks <- map2( genrich_filenames, genrich_conditions, function(genrich_file, condition){
-#  x <- read_tsv( genrich_file, col_names=genrich_colnames, show_col_types=FALSE ) %>% 
-#    mutate( strand=ifelse(strand == '.', '*', strand) )
-#  GRanges( seqnames=x$chrom
-#         , ranges=IRanges(x$start, end=x$end, names=paste( 'genrich', condition, x$name, sep='_' ))
-#         , strand=x$strand
-#         , p_value=10**(-x$`-log10(pvalue)`)
-#         , sig=10**(-x$`-log10(pvalue)`) < genrich_cuttoff
-#         , alpha=1.0
-#         , method='genrich'
-#         , condition=condition )
-#}) %>% do.call('c',.)
-#genrich_treatment <- subset( genrich_peaks, condition %in% treatment_conditions )
-#genrich_control   <- subset( genrich_peaks, condition %in% control_condition    )
-#nonoverlapping_ranges <- findOverlaps( genrich_treatment, genrich_control, select='first' ) %>% is.na()
-#genrich_unique_treatment_ranges <- subset( genrich_treatment, nonoverlapping_ranges ) %>% 
-#  subset(sig)
-#
-#idr_colnames <- c( 'chrom', 'start', 'end', 'name', 'scaled_idr', 'strand', 'enrichment', 'p_value', 'q_value', 'peak', 'local_idr', 'global_idr', 's1_start', 's1_end', 's1_enrichment', 's1_summit', 's2_start', 's2_end', 's2_enrichment', 's2_summit')
-#condition2idr_number <- table(idr_conditions)
-#idr_peaks <- pmap( list(idr_filenames, idr_conditions, idr_elements), function(idr_filename, idr_condition, idr_element){
-#  x <- read_tsv( idr_filename, col_names=idr_colnames, show_col_types = FALSE) %>%
-#    mutate( strand=ifelse(strand == '.', '*', strand) ) %>% 
-#    mutate( idr=2**(scaled_idr/-125) )
-#  GRanges( seqnames=x$chrom
-#         , ranges=IRanges(x$start, end=x$end, names=paste( 'idr', idr_condition, idr_element, seq_along(x$name), sep='_' ))
-#         , strand=x$strand
-#         , p_value=x$idr
-#         , sig=x$idr < idr_cuttoff
-#         , alpha=1.0/condition2idr_number[idr_condition]
-#         , method='macs2-idr'
-#         , condition=idr_condition )
-#}) %>% do.call('c',.)
-#idr_treatment <- subset( idr_peaks, condition %in% treatment_conditions )
-#idr_control   <- subset( idr_peaks, condition %in% control_condition    )
-#nonoverlapping_ranges <- findOverlaps( idr_treatment, idr_control, select='first' ) %>% is.na()
-#idr_unique_treatment_ranges <- subset( idr_treatment, nonoverlapping_ranges ) %>% 
-#  subset(sig)
-#
-#cond_search_peaks <- c( genrich_unique_treatment_ranges, idr_unique_treatment_ranges )
-#cond_peaks <- c( genrich_peaks, idr_peaks )
-
-cond_peaks <- read_tsv(condition_peaks)
+print('Reading vs Input Peakcaller Results')
+cond_peaks <- read_tsv(condition_peaks) %>% rename(chrom='seqnames')
 cond_search_peaks <- cond_peaks %>%
-	group_by('method') %>%
-	group_modify(function(g, df){
+	group_by(method) %>%
+	group_modify(function(df, g){
+	  df_treatment <- subset( df, condition %in% treatment_conditions ) %>% makeGRangesFromDataFrame(keep.extra.columns=TRUE) 
+	  df_control   <- subset( df, condition %in% control_condition    ) %>% makeGRangesFromDataFrame(keep.extra.columns=TRUE)
+	  non_overlapping_ranges <- findOverlaps( df_treatment, df_control, select='first' ) %>% is.na()
+	  df_treatment %>% 
+	    subset(non_overlapping_ranges) %>% 
+	    subset(significant) %>% 
+	    as.data.frame()
 	})
 
-search_peaks <- c( de_search_peaks, cond_search_peaks )
-peaks        <- c( de_peaks       , cond_peaks        )
+search_peaks <- rbind( de_search_peaks, select(cond_search_peaks, -width) ) %>% 
+  group_by(method) %>% 
+  mutate(method_rank=1:n())
+peaks        <- rbind( de_peaks       ,        cond_peaks                 )
 
 
+print('Loading simple track tools')
 method_offset <- function(xs){
   res <- c()
   if( length(xs) > 0 ){
@@ -211,10 +136,10 @@ tracks_shade_bar <- function( obj=tracks_create(), df, group_column, direction, 
   base_y <- -obj$width - shade_width
     
   df_plot <- df %>% 
-    rename( group=group_column ) %>% 
+    mutate( group=df[[group_column]] ) %>% 
     mutate( tab_top=map_dbl(group, ~base_y+tab_height*(group2num[[.x]]  ))
           , tab_bot=map_dbl(group, ~base_y+tab_height*(group2num[[.x]]-1)) ) %>% 
-    mutate( xmin=start, xmax=end ) %>%
+    mutate( xmin=start, xmax=end, alpha=1.0/siblings ) %>%
     select( xmin, xmax, tab_top, tab_bot, group, alpha )
   
   obj$width <- obj$width + shade_width + obj$padding
@@ -234,7 +159,7 @@ tracks_pileup <- function( obj=tracks_create(), df, condition_column ){
 }
 
 tracks_annotation <- function( obj=tracks_create(), df ){
-  gene_height        <- 0.05
+  gene_height        <- 0.0125
   exon_height        <- 0.05
   tss_marker_height  <- 0.20
   tss_marker_width   <- 0.05
@@ -245,7 +170,7 @@ tracks_annotation <- function( obj=tracks_create(), df ){
   annotation_sep <- .01 *(max(df$end) - min(df$start))
   
   plot_df <- df %>% 
-   subset(meta_level == 'gene')%>% 
+   subset(type == 'gene') %>% 
     mutate( tss1_xmin = ifelse( strand=='-', end -   annotation_sep, start                   )
           , tss1_xmax = ifelse( strand=='-', end                   , start +   annotation_sep)
           , tss2_xmin = ifelse( strand=='-', end - 3*annotation_sep, start                   )
@@ -255,7 +180,7 @@ tracks_annotation <- function( obj=tracks_create(), df ){
     arrange(desc(width))
   
   for( i in 1:nrow(plot_df) ){
-    element_to_place     <- slice( plot_df, i )
+    element_to_place     <- plot_df[i, ]
     placed_elements      <- slice_head( plot_df, n=i-1 )
     overlapping_elements <- subset( placed_elements, (start <= element_to_place$end) & (end >= element_to_place$start) )
     plot_df$y_index[i] <- min(setdiff(0:1+max(overlapping_elements$y_index,0), unique(overlapping_elements$y_index)))
@@ -275,17 +200,17 @@ tracks_annotation <- function( obj=tracks_create(), df ){
   
   
   df_exons <- df %>% 
-    subset(meta_level == 'exons' & level == 'exon') %>% 
-    select(-level) %>% 
-    left_join(select(plot_df, parent_gene, level, y_bot, y_top), by='parent_gene')
+    subset(type == 'exon') %>% 
+    select(-type) %>% 
+    left_join(select(plot_df, gene_id, y_bot, y_top), by='gene_id')
   
   df_upper_exons <- df_exons %>% 
-    mutate( xmin=start, xmax=end, ymin=y_top, ymax=y_top+exon_height, alpha=1.0/num_siblings, colour=level ) %>% 
+    mutate( xmin=start, xmax=end, ymin=y_top, ymax=y_top+exon_height, alpha=1.0/num_siblings, colour=biotype ) %>% 
     select( xmin, xmax, ymin, ymax, alpha, colour )
   
   df_lower_exons <- df_exons %>%
     subset( cannonical == TRUE ) %>% 
-    mutate( xmin=start, xmax=end, ymin=y_bot, ymax=y_bot-exon_height, alpha=1.0            , colour=level ) %>% 
+    mutate( xmin=start, xmax=end, ymin=y_bot, ymax=y_bot-exon_height, alpha=1.0            , colour=biotype ) %>% 
     select( xmin, xmax, ymin, ymax, alpha, colour )
     
   obj$tracks <- append( obj$tracks, list(list( type='annotation', df=plot_df, df_exons=rbind(df_upper_exons, df_lower_exons) )) )
@@ -337,9 +262,9 @@ tracks_plot <- function( obj ){
     geom_rect(aes(xmin=xmin, xmax=xmax, ymin=shade_bot, ymax=shade_top, fill=group, alpha=0.1*alpha), show.legend=FALSE, data=bars) +
     geom_rect(aes(xmin=xmin, xmax=xmax, ymin=tab_bot  , ymax=tab_top  , fill=group, alpha=1.0*alpha), show.legend=TRUE , data=bars)  
   p <- p +
-    geom_rect(aes(xmin=start    , xmax=end      , ymin=y_bot    , ymax=y_top    , fill=level             ), data=annotations) +
-    geom_rect(aes(xmin=tss1_xmin, xmax=tss1_xmax, ymin=tss1_ymin, ymax=tss1_ymax, fill=level             ), data=annotations) +
-    geom_rect(aes(xmin=tss2_xmin, xmax=tss2_xmax, ymin=tss2_ymin, ymax=tss2_ymax, fill=level             ), data=annotations) +
+    geom_rect(aes(xmin=start    , xmax=end      , ymin=y_bot    , ymax=y_top    , fill=biotype            ), data=annotations) +
+    geom_rect(aes(xmin=tss1_xmin, xmax=tss1_xmax, ymin=tss1_ymin, ymax=tss1_ymax, fill=biotype            ), data=annotations) +
+    geom_rect(aes(xmin=tss2_xmin, xmax=tss2_xmax, ymin=tss2_ymin, ymax=tss2_ymax, fill=biotype            ), data=annotations) +
     geom_rect(aes(xmin=xmin     , xmax=xmax     , ymin=ymin     , ymax=ymax     , fill=colour, alpha=alpha), data=exon_annotations) +
     geom_text(aes(x=(start+end)/2, y=label_y, label=label), data=annotations)
   p <- p + 
@@ -351,55 +276,54 @@ tracks_plot <- function( obj ){
     theme_void()
 }
 
-# Work Out Ranges To plot
-#for( treatment_condition in treatment_conditions ){
-#  treatment_de_peaks     <- subset( de_peaks    , condition %in% c( treatment_condition, control_condition ) )
-#  treatment_cond_peaks   <- subset( cond_peaks  , condition %in% c( treatment_condition, control_condition ) )
-#  treatment_peaks        <- subset( peaks       , condition %in% c( treatment_condition, control_condition ) )
-#  treatment_search_peaks <- subset( search_peaks, condition %in% c( treatment_condition, control_condition ) )
-  
+print('Working out ranges to plot')
 search_width <- 10000
-data_ranges <- GenomicRanges::reduce(search_peaks + search_width)
+search_peaks <- makeGRangesFromDataFrame(search_peaks, keep.extra.columns=TRUE)
+data_ranges <- GenomicRanges::reduce( search_peaks + search_width, ignore.strand=TRUE )
 
+print('Plotting ranges')
 #future_map( seq_along(data_ranges), function(i){
 for( i in seq_along(data_ranges) ){
   range_plot      <- data_ranges[i]
   range_chrom     <- seqnames(range_plot) %>% as.character()
-  range_gff       <- filter( gff, (gff$chrom == range_chrom) & (gff$start <= end(range_plot)) & (gff$end >= start(range_plot)))
-  range_gff_genes <- filter( range_gff, meta_level=='gene' )
+  range_gtf       <- filter( gtf, (gtf$seqnames == range_chrom) & (gtf$start <= end(range_plot)) & (gtf$end >= start(range_plot)))
+  range_gtf_genes <- filter( range_gtf, type=='gene' )
   
-  # Expand search area for all gff annotatins
-  range_plot <- GRanges(seqnames=range_chrom, ranges=IRanges(start=min(range_gff_genes$start, start(range_plot)), end=max(range_gff_genes$end, end(range_plot))))
+  # Expand search area for all gtf annotatins
+  range_plot <- GRanges(seqnames=range_chrom, ranges=IRanges(start=min(range_gtf_genes$start, start(range_plot)), end=max(range_gtf_genes$end, end(range_plot))))
   
   scan_params     <- ScanBamParam( which=range_plot, what=scanBamWhat() )
   pileup_params   <- PileupParam( distinguish_nucleotides=FALSE, distinguish_strands=FALSE ) #PileupParam(distinguish_nucleotides=FALSE)
   
   range_peaks <- GenomicRanges::pintersect(search_peaks, range_plot, drop.nohit.ranges=TRUE)
+  min_rank <- min(range_peaks$method_rank)
   
-  if( length(subset(range_peaks, sig))){
+  if( length(subset(range_peaks, significant)) ){
     sample_range_pileup <- map_dfr(seq_along(bam_files), function(i){
       sample_id       <- sample_ids[i]
       condition       <- sample2condition[[sample_id]]
       condition_count <- condition2count[[condition]]
       input           <- sample2input[[sample_id]]
       offset          <- condition_offset[[condition]] + !input
+      libsize_factor  <- sample2libsize_factor[[sample_id]]
       pileup( bam_files[i], index=bam_index_files[i], scanBamParam=scan_params, pileupParam=pileup_params ) %>%
         select(-which_label) %>% 
-        mutate( base=offset, sample=sample_id, condition=condition, input=input, alpha=1.0/condition_count )
+        mutate( base=offset, sample=sample_id, condition=condition, input=input, libsize_factor=libsize_factor, alpha=1.0/condition_count )
     }) %>% 
+      mutate(count=count / libsize_factor) %>% 
       mutate(normcount=count/max(count))
     
     track <- tracks_create() 
     
-    range_de_peaks <- GenomicRanges::pintersect(de_peaks, range_plot, drop.nohit.ranges=TRUE) %>% 
+    range_de_peaks <- GenomicRanges::pintersect(de_peaks_gr, range_plot, drop.nohit.ranges=TRUE) %>% 
       as.data.frame() 
     if(nrow(range_de_peaks) != 0) {
       track <- tracks_shade_bar( track, range_de_peaks, group_column='method', direction='down', range=-1 )
     }
     
-    track <- tracks_annotation( track, range_gff )
+    track <- tracks_annotation( track, range_gtf )
     
-    range_cond_peaks <- GenomicRanges::pintersect(cond_peaks, range_plot, drop.nohit.ranges=TRUE) %>% 
+    range_cond_peaks <- GenomicRanges::pintersect(makeGRangesFromDataFrame(cond_peaks, keep.extra.columns=TRUE), range_plot, drop.nohit.ranges=TRUE) %>% 
       as.data.frame()
     for( c in ordered_conditions ){
       pc <- subset(range_cond_peaks   , condition==c)
@@ -415,15 +339,15 @@ for( i in seq_along(data_ranges) ){
   
     p <- tracks_plot(track)
     dir.create( output_dir, showWarnings=TRUE, recursive=TRUE )
-    save_name = paste0(output_dir, '/pileup', '_chr', as.character(seqnames(range_plot)), ':', start(range_plot), '-', end(range_plot), '.pdf')
+    save_name = paste0(output_dir, '/pileup_', min_rank, '_', as.character(seqnames(range_plot)), ':', start(range_plot), '-', end(range_plot), '.pdf')
     ggsave(save_name, plot=p)
     print(save_name)
     
-    pmap(list(range_gff_genes$start, range_gff_genes$end, ifelse(range_gff_genes$name=='', range_gff_genes$parent_gene, range_gff_genes$name)), function(start, end, name){
-      q <- p +
-        xlim(start, end)
-      ggsave(str_replace(save_name, '.pdf', paste0('_', name, '.pdf')), plot=q)
-    })
+    #pmap(list(range_gtf_genes$start, range_gtf_genes$end, ifelse(range_gtf_genes$name=='', range_gtf_genes$parent_gene, range_gtf_genes$name)), function(start, end, name){
+    #  q <- p +
+    #    xlim(start, end)
+    #  ggsave(str_replace(save_name, '.pdf', paste0('_', name, '.pdf')), plot=q)
+    #})
   }
 }
 #})

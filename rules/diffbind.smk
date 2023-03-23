@@ -31,6 +31,7 @@ rule diffbind_diffbind:
 		norm  = os.path.join( config['peakcalling_dir'], 'diffbind', 'norm.tsv' ),
 	params:
 		control_condition = config['control_condition']
+	threads: int(1.5*len(sample_ids))
 	conda: '../envs/diffbind.yml'
 	script: '../scripts/diffbind.R'
 

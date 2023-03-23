@@ -1,13 +1,15 @@
-name: seq-pipeline-pileups
+name: seq-pipeline-deq
 channels:
   - conda-forge
   - bioconda
 dependencies:
   - r
   - r-tidyverse
+  - r-biocmanager
+  - r-devtools
   - bioconductor-genomicranges
   - bioconductor-Rsamtools
   - bioconductor-deseq2
   - bioconductor-edger
   - bioconductor-genomicfeatures
-  - bioconductor-exomepeak
+  - bioconductor-rsubread

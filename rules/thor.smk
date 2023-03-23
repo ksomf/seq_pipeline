@@ -58,7 +58,7 @@ rule thor2tsv:
 	params:
 		thor_conditions = config['treatment_conditions'],
 	run:
-		broadpeak_colnames <- [ 'chrom', 'start', 'end', 'name', 'stat', 'strand', 'start2', 'end2', 'pixel_like', 'unknown1', 'unknown2' ]
+		broadpeak_colnames = [ 'chrom', 'start', 'end', 'name', 'stat', 'strand', 'start2', 'end2', 'pixel_like', 'unknown1', 'unknown2' ]
 		res = []
 		for thor_filename, thor_condition in zip(input.thor_peaks, params.thor_conditions):
 			df                = pd.read_csv(thor_filename, sep='\t', names=broadpeak_colnames)
@@ -66,9 +66,9 @@ rule thor2tsv:
 			df['method']      = 'thor'
 			df['condition']   = thor_condition
 			df['significant'] = True
-			df['stat']        = 'score'
+			df['stat_type']   = 'score'
 			res.append(df)
 		res = pd.concat(res)
-		res = res[['chrom', 'start', 'end', 'strand', 'name', 'method', 'condtion', 'stat', 'stat_type', 'significant' ]]
+		res = res[['chrom', 'start', 'end', 'strand', 'name', 'method', 'condition', 'stat', 'stat_type', 'significant' ]]
 		res.to_csv( output.diffbind_peaks, sep='\t', index=False )
 
