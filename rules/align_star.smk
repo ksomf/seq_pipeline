@@ -19,10 +19,10 @@ star_index_files = [ 'chrLength.txt'
 
 rule star_generate_index:
 	input:
-		fasta=os.path.join(config['reference_dir'],'{assembly}.fasta'),
-		gtf  =os.path.join(config['reference_dir'],'{assembly}.gtf'),
+		fasta=os.path.join(config['reference_dir'],'{database}','{assembly}.fasta'),
+		gtf  =os.path.join(config['reference_dir'],'{database}','{assembly}.gtf'),
 	output:
-		index=expand(os.path.join(config['reference_dir'],'{assembly}_star_index/{f}'), f=star_index_files, allow_missing=True),
+		index=expand(os.path.join(config['reference_dir'],'{database}','{assembly}_star_index/{f}'), f=star_index_files, allow_missing=True),
 	params:
 		index_folder=lambda wildcards, output: os.path.dirname(output['index'][0]),
 		overhang=100, #maxreadlength - 1 ideally
@@ -42,11 +42,12 @@ rule star_generate_index:
 
 rule star_align_pair_end:
 	input:
-		index=expand(os.path.join(config['reference_dir'],'{assembly}_star_index/{f}'), assembly=config['assembly'], f=star_index_files, allow_missing=True),
+		index=[ os.path.join(config['reference_dir'],config['database'],f'{config["assembly"]}_star_index/{f}') for f in star_index_files ],
 		fastq=lambda w: sample_id2reads[w.sample_id]
 	output:
-		aligned_file=temp(local(os.path.join(config['align_dir'], '{sample_id}.star_aligned.unsorted.Aligned.out.bam'))),
-		log_file    =           os.path.join(config['align_dir'], '{sample_id}.star_aligned.unsorted.Log.final.out'),
+		align_chrom         = temp(local(os.path.join(config['align_dir'], '{sample_id}.star_aligned.unsorted.Aligned.out.bam'))),
+		align_transcriptome = temp(local(os.path.join(config['align_dir'], '{sample_id}.star_aligned.unsorted.Aligned.toTranscriptome.out.bam'))),
+		log_file            =            os.path.join(config['align_dir'], '{sample_id}.star_aligned.unsorted.Log.final.out'),
 	params:
 		index_folder=lambda wildcards, input: os.path.dirname(input['index'][0]),
 		output_prefix=lambda wildcards, output: output['aligned_file'].replace('Aligned.out.bam',''),
@@ -62,6 +63,7 @@ rule star_align_pair_end:
 			     --genomeDir         {params.index_folder}  \
 			     --readFilesIn       {input.fastq}          \
 			     --readFilesCommand  zcat                   \
+			     --quantMode         TranscriptomeSAM       \
 			     --outFileNamePrefix {params.output_prefix} \
 			     --outSAMtype        BAM Unsorted           \
 			     --outSAMunmapped    Within
@@ -77,4 +79,10 @@ rule star_sorted_bam:
 	conda: '../envs/align_star.yml'
 	threads: 16
 	shell: 'samtools sort --output-fmt bam --threads {threads} -T {params.work_dir}/{wildcards.sample_id} -o {output.sorted_file} {input.aligned_file}'
+
+use rule star_sorted_bam as star_sorted_transcriptome_bam with:
+	input:
+		aligned_file=os.path.join(config['align_dir'], '{sample_id}.star_aligned.unsorted.Aligned.toTranscriptome.out.bam'),
+	output:
+		sorted_file=os.path.join(config['align_dir'], '{sample_id}.star_aligned.unfiltered.transcriptome.bam'),
 

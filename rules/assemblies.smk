@@ -2,10 +2,10 @@ import os
 
 assembly2params = {
 	'hg38': { 'species'        : 'homo_sapiens'
-	        , 'ensembl_fasta'  : 'https://ftp.ensembl.org/pub/release-109/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz'
-	        , 'fasta'          : 'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz'
-	        , 'ensembl_gff'    : 'https://ftp.ensembl.org/pub/release-109/gff3/homo_sapiens/Homo_sapiens.GRCh38.109.gff3.gz'
-	        , 'gff'            : 'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_full_analysis_set.refseq_annotation.gff.gz'
+	        , 'ensembl'  : { 'fasta' : 'https://ftp.ensembl.org/pub/release-109/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz'
+	                       , 'gff'   : 'https://ftp.ensembl.org/pub/release-109/gff3/homo_sapiens/Homo_sapiens.GRCh38.109.gff3.gz'                     }
+	        , 'ncbi'     : { 'fasta' : 'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz'
+	                       , 'gff'   : 'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_full_analysis_set.refseq_annotation.gff.gz' }
 	        , 'chip_blacklist' : 'http://mitra.stanford.edu/kundaje/akundaje/release/blacklists/hg38-human/hg38.blacklist.bed.gz'
 	        , 'tss'            : 'https://www.encodeproject.org/files/ENCFF493CCB/@@download/ENCFF493CCB.bed.gz'
 	        , 'promoters'      : 'https://www.encodeproject.org/files/ENCFF140XLU/@@download/ENCFF140XLU.bed.gz'
@@ -14,27 +14,22 @@ assembly2params = {
 
 wildcard_constraints:
 	assembly='|'.join(assembly2params.keys()),
+	database='|'.join(['ensembl','ncbi']),
 
 rule download_assembly:
-	output: os.path.join(config['reference_dir'],'{assembly}.fasta'),
-	params: url=lambda w: assembly2params[w.assembly]['fasta']
+	output: os.path.join(config['reference_dir'],'{database}','{assembly}.fasta'),
+	params: url=lambda w: assembly2params[w.assembly][w.database]['fasta']
 	conda: '../envs/assemblies.yml'
 	shell: 'curl --location {params.url} | zcat > {output}'
 
 rule download_gff:
-	output: os.path.join(config['reference_dir'],'{assembly}.gff'),
-	params: url=lambda w: assembly2params[w.assembly]['gff']
-	conda: '../envs/assemblies.yml'
-	shell: 'curl --location {params.url} | zcat > {output}'
-
-rule download_report:
-	output: os.path.join(config['reference_dir'],'{assembly}_assembly_report.txt'),
-	params: url=lambda w: assembly2params[w.assembly]['chrom_report']
+	output: os.path.join(config['reference_dir'],'{database}','{assembly}.gff'),
+	params: url=lambda w: assembly2params[w.assembly][w.database]['gff']
 	conda: '../envs/assemblies.yml'
 	shell: 'curl --location {params.url} | zcat > {output}'
 
 rule download_blacklist:
-	output: os.path.join(config['reference_dir'],'{assembly}_blacklist.unsorted.bed'), #.named_chromosomes.bed'), #necessary for ensembl naming
+	output: os.path.join(config['reference_dir'],'{assembly}_blacklist.unsorted.bed'),
 	params: url=lambda w: assembly2params[w.assembly]['chip_blacklist']
 	conda: '../envs/assemblies.yml'
 	shell: 'curl --location {params.url} | zcat > {output}'
@@ -58,9 +53,9 @@ rule download_enhancers:
 	shell: 'curl --location {params.url} | zcat > {output}'
 
 rule generate_gtf:
-	input:  os.path.join(config['reference_dir'],'{assembly}.gff'),
-	output: os.path.join(config['reference_dir'],'{assembly}.gtf'),
-	log:    os.path.join(config['reference_dir'],'{assembly}_agat_gff2gtf.log')
+	input:  os.path.join(config['reference_dir'],'{database}','{assembly}.gff'),
+	output: os.path.join(config['reference_dir'],'{database}','{assembly}.gtf'),
+	log:    os.path.join(config['reference_dir'],'{database}','{assembly}_agat_gff2gtf.log')
 	conda: '../envs/assemblies.yml'
 	shell:
 		'''
@@ -76,31 +71,37 @@ rule generate_faidx:
 	shell: 'samtools faidx {input}'
 
 rule generate_chromosome_sizes:
-	input:  os.path.join(config['reference_dir'],'{assembly}.fasta.fai'),
-	output: os.path.join(config['reference_dir'],'{assembly}_chromosome_sizes.tsv'),
+	input:  os.path.join(config['reference_dir'],'{database}','{assembly}.fasta.fai'),
+	output: os.path.join(config['reference_dir'],'{database}','{assembly}_chromosome_sizes.tsv'),
 	conda: '../envs/assemblies.yml'
 	shell: 'cut -f1,2 {input} > {output}'
 
+rule generate_matching_names_ensembl:
+	input:
+		blacklist=os.path.join(config['reference_dir'],'{assembly}_blacklist.unsorted.bed'),
+	output:      os.path.join(config['reference_dir'],'ensembl','{assembly}_blacklist.unsorted.bed'),
+	conda: '../envs/assemblies.yml'
+	shell: 'sed "s/^chr//g" {input.blacklist} > {output}'
+
 rule generate_matching_names:
 	input:
-		blacklist=os.path.join(config['reference_dir'],'{assembly}_blacklist.unsorted.named_chromosomes.bed'),
-	output: os.path.join(config['reference_dir'],'{assembly}_blacklist.unsorted.bed'),
+		blacklist=os.path.join(config['reference_dir'],'{assembly}_blacklist.unsorted.bed'),
+	output:      os.path.join(config['reference_dir'],'{database}','{assembly}_blacklist.unsorted.bed'),
 	conda: '../envs/assemblies.yml'
-	shell: 'sed "s/^chr//g" {input} > {output}'
+	shell: 'cp {input.blacklist} {output}'
 
 rule generate_sorted_blacklist:
 	input:
-		blacklist=os.path.join(config['reference_dir'],'{assembly}_blacklist.unsorted.bed'),
-		sizes    =os.path.join(config['reference_dir'],'{assembly}_chromosome_sizes.tsv'),
-	output: os.path.join(config['reference_dir'],'{assembly}_blacklist.bed'),
+		blacklist=os.path.join(config['reference_dir'],'{database}','{assembly}_blacklist.unsorted.bed'),
+		sizes    =os.path.join(config['reference_dir'],'{database}','{assembly}_chromosome_sizes.tsv'),
+	output:      os.path.join(config['reference_dir'],'{database}','{assembly}_blacklist.bed'),
 	conda: '../envs/assemblies.yml'
 	shell: 'bedtools sort -faidx {input.sizes} -i {input.blacklist} > {output}'
 
 rule generate_whitelist:
 	input:
-		blacklist=os.path.join(config['reference_dir'],'{assembly}_blacklist.bed'),
-		sizes    =os.path.join(config['reference_dir'],'{assembly}_chromosome_sizes.tsv'),
-	output: os.path.join(config['reference_dir'],'{assembly}_whitelist.bed'),
+		blacklist=os.path.join(config['reference_dir'],'{database}','{assembly}_blacklist.bed'),
+		sizes    =os.path.join(config['reference_dir'],'{database}','{assembly}_chromosome_sizes.tsv'),
+	output:      os.path.join(config['reference_dir'],'{database}','{assembly}_whitelist.bed'),
 	conda: '../envs/assemblies.yml'
 	shell: 'bedtools complement -i {input.blacklist} -g {input.sizes} > {output}'
-

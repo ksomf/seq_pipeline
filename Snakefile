@@ -27,7 +27,7 @@ need_to_peakcall = config['pipeline'] == 'ripseq'
 need_to_stamp    = config['pipeline'] == 'stamp'
 
 metadata = pd.read_csv(config['metadata'], sep='\t')
-conditions = list(set(metadata['condition']))
+conditions = config['treatment_conditions'] + [config['control_condition']]
 sample_ids = metadata['sample_id']
 
 ip_sample_id2input_sample_id = dict()
@@ -52,7 +52,8 @@ if need_to_align:
 	sample_id2reads = dict(zip(metadata['sample_id'],zip(metadata['R1'],metadata['R2'])))
 else:
 	sample_id2bam   = dict(zip(metadata['sample_id'],metadata['bam']))
-
+print('Conditions')
+print(conditions)
 print('Conditin2samples')
 print(condition2sample_ids)
 print('Conditin2inputs')

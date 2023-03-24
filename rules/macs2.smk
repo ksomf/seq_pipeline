@@ -18,7 +18,7 @@ rule macs2_peakcalling:
 	params:
 		pvalue = lambda wildcards: macs2_type2pvalue[wildcards.peak_types],
 		outdir = lambda wildcards, output: os.path.dirname(output[0]),
-		slocal = 2000, #Average fragment length ~1400
+		slocal = 3000, #Average fragment length in ripseq fairly hight
 		prefix = lambda wildcards, output: os.path.basename(output[0]).replace('_peaks.narrowPeak', ''),
 	conda: '../envs/macs2.yml'
 	shell:

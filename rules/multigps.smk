@@ -34,7 +34,7 @@ rule multigps_diffbind_input:
 rule multigps_diffbind:
 	input:
 		param_file       = os.path.join( config['peakcalling_dir'], 'multigps', '{condition1}_vs_{condition2}_params.tsv' ),
-		chromosome_sizes = os.path.join(config['reference_dir'],f'{config["assembly"]}_chromosome_sizes.tsv'),
+		chromosome_sizes = os.path.join(config['reference_dir'],config['database'],f'{config["assembly"]}_chromosome_sizes.tsv'),
 	output:
 		peaks = os.path.join( config['peakcalling_dir'], 'multigps', '{condition1}_vs_{condition2}_diffpeaks.tsv' ),
 		cor   = os.path.join( config['peakcalling_dir'], 'multigps', '{condition1}_vs_{condition2}_cor.pdf' ),

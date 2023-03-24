@@ -45,7 +45,7 @@ rule plot_pileups:
 		bam_files       = [ sample_id2bam[sample_id]                            for sample_id in sample_ids ],
 		bam_index_files = [ sample_id2bam[sample_id].replace('.bam','.bam.bai') for sample_id in sample_ids ],
 		library_sizes   =   os.path.join(config['peakcalling_dir'],'analysis','library_sizes.tsv'),
-		gff             =   os.path.join(config['reference_dir'], config['assembly']+'.gff'),
+		gff             =   os.path.join(config['reference_dir'], config['database'], config['assembly']+'.gff'),
 	output:
 		plot_dir     = directory(os.path.join(config['peakcalling_dir'],'analysis','plots')),
 		summary_file =           os.path.join(config['peakcalling_dir'],'analysis','summary.txt'),

@@ -8,8 +8,8 @@ rule thor_diffbind:
 		cond2_ips_index    = lambda wildcards: [ sample_id2bam[sample_id].replace('.bam','.bam.bai') for sample_id in condition2sample_ids[wildcards.condition2] ],
 		cond2_inputs       = lambda wildcards: [ sample_id2bam[sample_id]                            for sample_id in condition2input_ids [wildcards.condition2] ],
 		cond2_inputs_index = lambda wildcards: [ sample_id2bam[sample_id].replace('.bam','.bam.bai') for sample_id in condition2input_ids [wildcards.condition2] ],
-		chromosome_sizes   = os.path.join(config['reference_dir'],f'{config["assembly"]}_chromosome_sizes.tsv'),
-		genome             = os.path.join(config['reference_dir'],f'{config["assembly"]}.fasta'),
+		chromosome_sizes   = os.path.join(config['reference_dir'],config['database'],f'{config["assembly"]}_chromosome_sizes.tsv'),
+		genome             = os.path.join(config['reference_dir'],config['database'],f'{config["assembly"]}.fasta'),
 	output:
 		peaks  = os.path.join(config["peakcalling_dir"],'thor','run','{condition1}_vs_{condition2}-diffpeaks.bed'),
 		#npeaks = os.path.join(config["peakcalling_dir"],'thor','run','{condition1}_vs_{condition2}-diffpeaks.narrowPeak'), # thor currently fails to produce this file due to internal file handle problems

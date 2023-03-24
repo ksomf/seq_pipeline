@@ -30,7 +30,7 @@ rule index_bam:
 rule filter_bam:
 	input:
 		sorted_file=multiext(os.path.join(config['align_dir'], '{sample_id}.{aligner}_aligned.unfiltered'), '.bam', '.bam.bai'),
-		whitelist=expand(os.path.join(config['reference_dir'],'{assembly}_whitelist.bed'), assembly=config['assembly'], allow_missing=True),
+		whitelist=expand(os.path.join(config['reference_dir'],config['database'],'{assembly}_whitelist.bed'), assembly=config['assembly'], allow_missing=True),
 	output:
 		filtered_file=os.path.join(config['align_dir'], '{sample_id}.{aligner}_aligned.bam'),
 	params:

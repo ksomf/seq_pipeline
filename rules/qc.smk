@@ -15,6 +15,13 @@ rule make_multiqc_list:
 
 rule run_multiqc:
 	input:  'multiqc_report_files.txt'
-	output: 'multiqc_report.html'
+	output:
+		report='multiqc_report.html',
+		data=directory('multiqc_data/'),
 	conda: '../envs/qc.yml'
-	shell: 'multiqc --file-list {input}'
+	shell:
+		'''
+			test -d {output.data}   && rm -r {output.data}
+			test -f {output.report} && rm    {output.report}
+			multiqc --file-list {input}
+		'''
