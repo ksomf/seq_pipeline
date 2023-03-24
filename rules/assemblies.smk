@@ -76,19 +76,19 @@ rule generate_chromosome_sizes:
 	conda: '../envs/assemblies.yml'
 	shell: 'cut -f1,2 {input} > {output}'
 
-rule generate_matching_names_ensembl:
-	input:
-		blacklist=os.path.join(config['reference_dir'],'{assembly}_blacklist.unsorted.bed'),
-	output:      os.path.join(config['reference_dir'],'ensembl','{assembly}_blacklist.unsorted.bed'),
-	conda: '../envs/assemblies.yml'
-	shell: 'sed "s/^chr//g" {input.blacklist} > {output}'
-
 rule generate_matching_names:
 	input:
 		blacklist=os.path.join(config['reference_dir'],'{assembly}_blacklist.unsorted.bed'),
 	output:      os.path.join(config['reference_dir'],'{database}','{assembly}_blacklist.unsorted.bed'),
 	conda: '../envs/assemblies.yml'
-	shell: 'cp {input.blacklist} {output}'
+	shell:
+		'''
+			if [[ {wildcards.database} == "ensembl" ]]; then
+				sed "s/^chr//g" {input.blacklist} > {output}
+			else
+				cp {input.blacklist} {output}
+			fi
+		'''
 
 rule generate_sorted_blacklist:
 	input:

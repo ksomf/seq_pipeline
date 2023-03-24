@@ -16,6 +16,7 @@ defaults = { 'sra_dir'              : '01_sra_download'
            , 'peakcalling_dir'      : '04_peakcalling'
            , 'metadata_file'        : 'metadata.tsv'
            , 'reference_dir'        : 'reference'
+           , 'database'             : 'ensembl'
            , 'treatment_conditions' : []
            , 'control_condition'    : None }
 for k, v in defaults.items():
@@ -46,7 +47,7 @@ if config['pipeline'] == 'ripseq':
 
 sample_readlist = []
 sample_id2reads = {}
-sample_id2bam   = { s:os.path.join(config['align_dir'], f'{s}.{config["aligner"]}_aligned.bam') for s in sample_ids }
+sample_id2bam   = { s:os.path.join(config['align_dir'], f'{s}.{config["aligner"]}_aligned.transcriptome.bam') for s in sample_ids }
 if need_to_align:
 	sample_readlist = list(chain(metadata['R1'],metadata['R2']))
 	sample_id2reads = dict(zip(metadata['sample_id'],zip(metadata['R1'],metadata['R2'])))

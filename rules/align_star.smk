@@ -50,9 +50,9 @@ rule star_align_pair_end:
 		log_file            =            os.path.join(config['align_dir'], '{sample_id}.star_aligned.unsorted.Log.final.out'),
 	params:
 		index_folder=lambda wildcards, input: os.path.dirname(input['index'][0]),
-		output_prefix=lambda wildcards, output: output['aligned_file'].replace('Aligned.out.bam',''),
-		output_path=lambda wildcards, output: os.path.dirname(output['aligned_file']),
-		overhang=100, #maxreadlength - 1 ideally
+		output_prefix=lambda wildcards, output: output['align_chrom'].replace('Aligned.out.bam',''),
+		output_path=lambda wildcards, output: os.path.dirname(output['align_chrom']),
+		overhang=config['readlength'] - 1
 	threads: min(workflow.cores,32)
 	conda: '../envs/align_star.yml'
 	shell:
@@ -65,8 +65,7 @@ rule star_align_pair_end:
 			     --readFilesCommand  zcat                   \
 			     --quantMode         TranscriptomeSAM       \
 			     --outFileNamePrefix {params.output_prefix} \
-			     --outSAMtype        BAM Unsorted           \
-			     --outSAMunmapped    Within
+			     --outSAMtype        BAM Unsorted
 		'''
 
 rule star_sorted_bam:
@@ -84,5 +83,5 @@ use rule star_sorted_bam as star_sorted_transcriptome_bam with:
 	input:
 		aligned_file=os.path.join(config['align_dir'], '{sample_id}.star_aligned.unsorted.Aligned.toTranscriptome.out.bam'),
 	output:
-		sorted_file=os.path.join(config['align_dir'], '{sample_id}.star_aligned.unfiltered.transcriptome.bam'),
+		sorted_file=os.path.join(config['align_dir'], '{sample_id}.star_aligned.transcriptome.unfiltered.bam'),
 

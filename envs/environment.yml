@@ -12,3 +12,4 @@ dependencies:
   - tqdm
   - flexbar
   - pybedtools
+  - graphviz

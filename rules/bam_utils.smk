@@ -27,12 +27,15 @@ rule index_bam:
 	conda: '../envs/samtools.yml'
 	shell: 'samtools index -@ {threads} {input} {output}'
 
+wildcard_constraints:
+	align_type='|'.join(['aligned', 'aligned.transcriptome']),
+
 rule filter_bam:
 	input:
-		sorted_file=multiext(os.path.join(config['align_dir'], '{sample_id}.{aligner}_aligned.unfiltered'), '.bam', '.bam.bai'),
+		sorted_file=multiext(os.path.join(config['align_dir'], '{sample_id}.{aligner}_{align_type}.unfiltered'), '.bam', '.bam.bai'),
 		whitelist=expand(os.path.join(config['reference_dir'],config['database'],'{assembly}_whitelist.bed'), assembly=config['assembly'], allow_missing=True),
 	output:
-		filtered_file=os.path.join(config['align_dir'], '{sample_id}.{aligner}_aligned.bam'),
+		filtered_file=os.path.join(config['align_dir'], '{sample_id}.{aligner}_{align_type}.bam'),
 	params:
 		phred_quality_cuttoff=30,
 		pass_flag=create_align_flag(['read_mapped_as_part_of_pair']),
