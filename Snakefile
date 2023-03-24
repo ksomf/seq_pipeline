@@ -63,7 +63,7 @@ print(ip_sample_id2input_sample_id)
 multiqc_inputs = []
 #generate multiqc files
 if need_to_align:
-	multiqc_inputs += [ os.path.join(config['fastq_dir'], os.path.basename(f).replace('.fastq.gz','_fastqc.zip' ) ) for f in sample_readlist ]
+	multiqc_inputs += [ os.path.join(config['fastq_dir'], os.path.basename(f).replace('.fastq.gz','_fastqc.zip' ).replace('.fq.gz','_fastqc.zip') ) for f in sample_readlist ]
 	if config['aligner'] == 'star':
 		multiqc_inputs += [ os.path.join(config['align_dir'], f'{sample_id}.star_aligned.unsorted.Log.final.out') for sample_id in sample_ids ]
 if need_to_peakcall:

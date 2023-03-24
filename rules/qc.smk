@@ -1,6 +1,6 @@
 rule fastqc_fastq:
 	input: sample_readlist
-	output: [ os.path.join(config['fastq_dir'], os.path.basename(f).replace('.fastq.gz','_fastqc.zip' ) ) for f in sample_readlist ],
+	output: [ os.path.join(config['fastq_dir'], os.path.basename(f).replace('.fastq.gz','_fastqc.zip').replace('.fq.gz','_fastqc.zip') ) for f in sample_readlist ],
 	params:
 		output_dir=lambda wildcards, output: os.path.dirname(output[0]),
 	threads: len(sample_readlist)
