@@ -40,10 +40,35 @@ rule star_generate_index:
 			     --sjdbOverhang     {params.overhang}
 		'''
 
+rule star_align_genome_shared_memory:
+	input:
+		index=[ os.path.join(config['reference_dir'],config['database'],f'{config["assembly"]}_star_index/{f}') for f in star_index_files ],
+	output: service(os.path.join(config['align_dir'],f'config["database"]_star_index.service')),
+	conda: '../envs/align_star.yml'
+	params:
+		index_folder=lambda wildcards, input: os.path.dirname(input['index'][0]),
+		output_path=lambda wildcards, output: os.path.dirname(output[0]),
+	shell:
+		'''
+			mkdir -p {params.output_path}
+
+			STAR --genomeDir  {params.index_folder} \
+			     --genomeLoad LoadAndExit
+
+			touch (output}
+
+			function unload_star() {
+				STAR --genomeDir  {params.index_folder} \
+				     --genomeLoad Remove
+			}
+			trap "unload_star" exit
+		'''
+
 rule star_align_pair_end:
 	input:
 		index=[ os.path.join(config['reference_dir'],config['database'],f'{config["assembly"]}_star_index/{f}') for f in star_index_files ],
-		fastq=lambda w: sample_id2reads[w.sample_id]
+		fastq=lambda w: sample_id2reads[w.sample_id],
+		#shared=os.path.join(config['align_dir'],f'config["database"]_star_index.service'),
 	output:
 		align_chrom         = temp(local(os.path.join(config['align_dir'], '{sample_id}.star_aligned.unsorted.Aligned.out.bam'))),
 		align_transcriptome = temp(local(os.path.join(config['align_dir'], '{sample_id}.star_aligned.unsorted.Aligned.toTranscriptome.out.bam'))),
@@ -53,7 +78,7 @@ rule star_align_pair_end:
 		output_prefix=lambda wildcards, output: output['align_chrom'].replace('Aligned.out.bam',''),
 		output_path=lambda wildcards, output: os.path.dirname(output['align_chrom']),
 		overhang=config['readlength'] - 1
-	threads: min(workflow.cores,32)
+	threads: 8
 	conda: '../envs/align_star.yml'
 	shell:
 		'''
@@ -61,6 +86,7 @@ rule star_align_pair_end:
 
 			STAR --runThreadN        {threads}              \
 			     --genomeDir         {params.index_folder}  \
+			     --genomeLoad        LoadAndRemove          \
 			     --readFilesIn       {input.fastq}          \
 			     --readFilesCommand  zcat                   \
 			     --quantMode         TranscriptomeSAM       \

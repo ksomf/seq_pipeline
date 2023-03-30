@@ -2,6 +2,7 @@
 
 #TODO(KIM): Should I reduce all genomics to the standard chromosomes?
 #TODO(KIM): Decide if I should delete diffreps and multigps
+#TODO(KIM): Make the blacklist use the standard chromosome names by using the chrom report to map
 
 
 import numpy      as np
@@ -38,7 +39,7 @@ sample_ids_ip       = []
 condition2sample_ids = { g:df['sample_id'].to_list() for g, df in metadata.groupby(['condition']) }
 condition2input_ids  = {}
 if config['pipeline'] == 'ripseq':
-	ip_sample_id2input_sample_id = dict(zip(metadata['sample_id'],metadata['matching_input_control']))
+	ip_sample_id2input_sample_id = dict(filter(lambda xs: xs[0] != xs[1], zip(metadata['sample_id'],metadata['matching_input_control'])))
 	metadata_ip_only    = metadata[ metadata['method']=='IP' ]
 	metadata_input_only = metadata[ metadata['method']=='Input' ]
 	sample_ids_ip       = metadata_ip_only['sample_id']
@@ -47,7 +48,7 @@ if config['pipeline'] == 'ripseq':
 
 sample_readlist = []
 sample_id2reads = {}
-sample_id2bam   = { s:os.path.join(config['align_dir'], f'{s}.{config["aligner"]}_aligned.transcriptome.bam') for s in sample_ids }
+sample_id2bam   = { s:os.path.join(config['align_dir'], f'{s}.{config["aligner"]}_aligned.bam') for s in sample_ids }
 if need_to_align:
 	sample_readlist = list(chain(metadata['R1'],metadata['R2']))
 	sample_id2reads = dict(zip(metadata['sample_id'],zip(metadata['R1'],metadata['R2'])))
@@ -112,6 +113,3 @@ rule dev:
 rule dev2:
 	input:
 		qc='multiqc_report.html',
-
-#TODO: Make the blacklist use the standard chromosome names by using the chrom report to map
-#TODO: Get QC working
