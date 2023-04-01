@@ -16,12 +16,13 @@ rule thor_diffbind:
 		info   = os.path.join(config["peakcalling_dir"],'thor','run','{condition1}_vs_{condition2}-setup.info'),
 		config = os.path.join(config["peakcalling_dir"],'thor'      ,'{condition1}_vs_{condition2}-setup.config'), #thor fails if there are any files with the prefix in the output directory
 	params:
-		prefix       = lambda wildcards: '_vs_'.join([wildcards.condition1, wildcards.condition2]),
-		output_dir   = lambda wildcards, output: os.path.dirname(output.peaks),
-		cond1_nl     = lambda wildcards, input: '\n'.join(input.cond1_ips),
-		cond2_nl     = lambda wildcards, input: '\n'.join(input.cond2_ips),
-		cond1_inl    = lambda wildcards, input: '\n'.join(input.cond1_inputs),
-		cond2_inl    = lambda wildcards, input: '\n'.join(input.cond2_inputs),
+		prefix         = lambda wildcards: '_vs_'.join([wildcards.condition1, wildcards.condition2]),
+		output_dir     = lambda wildcards, output: os.path.dirname(output.peaks),
+		cond1_nl       = lambda wildcards, input: '\n'.join(input.cond1_ips),
+		cond2_nl       = lambda wildcards, input: '\n'.join(input.cond2_ips),
+		cond1_inl      = lambda wildcards, input: '\n'.join(input.cond1_inputs),
+		cond2_inl      = lambda wildcards, input: '\n'.join(input.cond2_inputs),
+		pvalue_cuttoff = 0.01
 	threads: len(sample_ids)
 	conda: '../envs/thor.yml'
 	shell:
@@ -45,30 +46,35 @@ rule thor_diffbind:
 
 			export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:${{LD_LIBRARY_PATH:-}}" # For libpng12.so.0
 
-			rgt-THOR --name       {params.prefix}     \
-			         --output-dir {params.output_dir} \
+			rgt-THOR --name       {params.prefix}         \
+			         --output-dir {params.output_dir}     \
+			         --pvalue     {params.pvalue_cuttoff} \
 			         {output.config}
 			'''
 
 rule thor2tsv:
 	input:
-		thor_peaks = [ os.path.join( config['peakcalling_dir'], 'thor', 'run', f'{condition}_vs_{config["control_condition"]}-diffpeaks.bed' ) for condition in config['treatment_conditions'] ],
+		thor_peaks = [ os.path.join( config['peakcalling_dir'], 'thor', 'run', f'{condition}_vs_{config["control_condition"]}-narrowPeak.bed' ) for condition in config['treatment_conditions'] ],
 	output:
 		diffbind_peaks = os.path.join(config['peakcalling_dir'],'thor','merged_peaks.tsv'),
 	params:
 		thor_conditions = config['treatment_conditions'],
+		thor_cuttoff    = 0.01,
 	run:
-		broadpeak_colnames = [ 'chrom', 'start', 'end', 'name', 'stat', 'strand', 'start2', 'end2', 'pixel_like', 'unknown1', 'unknown2' ]
+		broadpeak_colnames = [ 'chrom', 'start', 'end', 'name', 'always_zero', 'up_or_down', 'always_zero2', 'stat', 'always_zero3', 'always_minus_one' ]
 		res = []
 		for thor_filename, thor_condition in zip(input.thor_peaks, params.thor_conditions):
 			df                = pd.read_csv(thor_filename, sep='\t', names=broadpeak_colnames)
 			df['name']        = [ '_'.join(['thor', thor_condition, name]) for name in df['name'] ]
 			df['method']      = 'thor'
 			df['condition']   = thor_condition
-			df['significant'] = True
-			df['stat_type']   = 'score'
+			df['stat']        = 10**(-df['stat'])
+			df['significant'] = df['stat'] < params.thor_cuttoff
+			df['stat_type']   = 'pvalues'
 			res.append(df)
 		res = pd.concat(res)
 		res = res[['chrom', 'start', 'end', 'strand', 'name', 'method', 'condition', 'stat', 'stat_type', 'significant' ]]
-		res.to_csv( output.diffbind_peaks, sep='\t', index=False )
+		res = res[res['significant']]
+		res = res.sort_values('stat')
+		res.to_csv(output.diffbind_peaks, sep='\t', index=False)
 

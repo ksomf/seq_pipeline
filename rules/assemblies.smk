@@ -2,10 +2,14 @@ import os
 
 assembly2params = {
 	'hg38': { 'species'        : 'homo_sapiens'
-	        , 'ensembl'  : { 'fasta' : 'https://ftp.ensembl.org/pub/release-109/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz'
-	                       , 'gff'   : 'https://ftp.ensembl.org/pub/release-109/gff3/homo_sapiens/Homo_sapiens.GRCh38.109.gff3.gz'                     }
+	        , 'ensembl'  : { 'fasta' : 'https://ftp.ensembl.org/pub/release-109/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz' #According to https://www.biostars.org/p/342482/ is fine
+	                      #, 'gff'   : 'https://ftp.ensembl.org/pub/release-109/gff3/homo_sapiens/Homo_sapiens.GRCh38.109.gff3.gz'
+	                       , 'gtf'   : 'https://ftp.ensembl.org/pub/release-109/gtf/homo_sapiens/Homo_sapiens.GRCh38.109.gtf.gz'                     }
 	        , 'ncbi'     : { 'fasta' : 'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz'
-	                       , 'gff'   : 'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_full_analysis_set.refseq_annotation.gff.gz' }
+	                      #, 'gff'   : 'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_full_analysis_set.refseq_annotation.gff.gz'
+	                       , 'gtf'   : 'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_full_analysis_set.refseq_annotation.gtf.gz' }
+	        , 'ucsc'     : { 'fasta' : 'https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/latest/hg38.fa.masked.gz'
+	                       , 'gtf'   : 'https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/genes/hg38.ensGene.gtf.gz' }
 	        , 'chip_blacklist' : 'http://mitra.stanford.edu/kundaje/akundaje/release/blacklists/hg38-human/hg38.blacklist.bed.gz'
 	        , 'tss'            : 'https://www.encodeproject.org/files/ENCFF493CCB/@@download/ENCFF493CCB.bed.gz'
 	        , 'promoters'      : 'https://www.encodeproject.org/files/ENCFF140XLU/@@download/ENCFF140XLU.bed.gz'
@@ -14,7 +18,7 @@ assembly2params = {
 
 wildcard_constraints:
 	assembly='|'.join(assembly2params.keys()),
-	database='|'.join(['ensembl','ncbi']),
+	database='|'.join(['ensembl','ncbi','ucsc']),
 
 rule download_assembly:
 	output: os.path.join(config['reference_dir'],'{database}','{assembly}.fasta'),
@@ -52,17 +56,23 @@ rule download_enhancers:
 	conda: '../envs/assemblies.yml'
 	shell: 'curl --location {params.url} | zcat > {output}'
 
-rule generate_gtf:
-	input:  os.path.join(config['reference_dir'],'{database}','{assembly}.gff'),
+rule download_gtf:
 	output: os.path.join(config['reference_dir'],'{database}','{assembly}.gtf'),
-	log:    os.path.join(config['reference_dir'],'{database}','{assembly}_agat_gff2gtf.log')
+	params: url=lambda w: assembly2params[w.assembly][w.database]['gtf']
 	conda: '../envs/assemblies.yml'
-	shell:
-		'''
-		#https://github.com/NBISweden/GAAS/blob/master/annotation/knowledge/gff_to_gtf.md
-		#https://github.com/NBISweden/AGAT
-		agat_convert_sp_gff2gtf.pl --gff {input} -o {output} > {log}
-		'''
+	shell: 'curl --location {params.url} | zcat > {output}'
+
+#rule generate_gtf:
+#	input:  os.path.join(config['reference_dir'],'{database}','{assembly}.gff'),
+#	output: os.path.join(config['reference_dir'],'{database}','{assembly}.gtf'),
+#	log:    os.path.join(config['reference_dir'],'{database}','{assembly}_agat_gff2gtf.log')
+#	conda: '../envs/assemblies.yml'
+#	shell:
+#		'''
+#		#https://github.com/NBISweden/GAAS/blob/master/annotation/knowledge/gff_to_gtf.md
+#		#https://github.com/NBISweden/AGAT
+#		agat_convert_sp_gff2gtf.pl --gff {input} -o {output} > {log}
+#		'''
 
 rule generate_faidx:
 	input: '{path}/{fa_name}.fasta',

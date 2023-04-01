@@ -17,7 +17,7 @@ defaults = { 'sra_dir'              : '01_sra_download'
            , 'peakcalling_dir'      : '04_peakcalling'
            , 'metadata_file'        : 'metadata.tsv'
            , 'reference_dir'        : 'reference'
-           , 'database'             : 'ensembl'
+           , 'database'             : 'ucsc'
            , 'treatment_conditions' : []
            , 'control_condition'    : None }
 for k, v in defaults.items():

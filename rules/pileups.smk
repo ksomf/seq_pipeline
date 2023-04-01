@@ -18,13 +18,15 @@ rule join_diffbind_data:
 	input:
 		pepr_peaks     = os.path.join(config['peakcalling_dir'],'pepr'    ,'merged_peaks.tsv'),
 		thor_peaks     = os.path.join(config['peakcalling_dir'],'thor'    ,'merged_peaks.tsv'),
+		deq_peaks      = os.path.join(config['peakcalling_dir'],'deq'     ,'merged_peaks.tsv'),
 		#diffbind_peaks = os.path.join(config['peakcalling_dir'],'diffbind','merged_peaks.tsv'),
 	output:
 		diffbind_peaks = os.path.join(config['peakcalling_dir'],'analysis','diffbind_peaks.tsv'),
 	run:
 		df_pepr = pd.read_csv( input.pepr_peaks, sep='\t' )
 		df_thor = pd.read_csv( input.thor_peaks, sep='\t' )
-		res = pd.concat([ df_pepr, df_thor ])
+		df_deq  = pd.read_csv( input.deq_peaks , sep='\t' )
+		res = pd.concat([ df_pepr, df_thor, df_deq ])
 		res.to_csv( output.diffbind_peaks, sep='\t', index=False )
 
 rule get_library_sizes:
@@ -45,7 +47,7 @@ rule plot_pileups:
 		bam_files       = [ sample_id2bam[sample_id]                            for sample_id in sample_ids ],
 		bam_index_files = [ sample_id2bam[sample_id].replace('.bam','.bam.bai') for sample_id in sample_ids ],
 		library_sizes   =   os.path.join(config['peakcalling_dir'],'analysis','library_sizes.tsv'),
-		gff             =   os.path.join(config['reference_dir'], config['database'], config['assembly']+'.gff'),
+		gtf             =   os.path.join(config['reference_dir'], config['database'], config['assembly']+'.gtf'),
 	output:
 		plot_dir     = directory(os.path.join(config['peakcalling_dir'],'analysis','plots')),
 		summary_file =           os.path.join(config['peakcalling_dir'],'analysis','summary.txt'),
