@@ -16,7 +16,7 @@ def create_align_flag(flags):
 rule sort_name_bam:
 	input:             '{path}/{bamfile}.bam'
 	output: temp(local('{path}/{bamfile}.sorted_by_name.bam'))
-	threads: 16
+	threads: 8
 	conda: '../envs/samtools.yml'
 	shell: 'samtools sort -@ {threads} -n -o {output} {input}'
 
