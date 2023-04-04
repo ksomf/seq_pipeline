@@ -13,14 +13,16 @@ diffbind_peaks  <- '04_peakcalling/analysis/diffbind_peaks.tsv'
 bam_files       <- list.files('03_aligned/', full.names=TRUE ) %>% .[str_ends(.,'star_aligned.bam')]
 bam_index_files <- list.files('03_aligned/', full.names=TRUE ) %>% .[str_ends(.,'star_aligned.bam.bai')]
 library_sizes   <- '04_peakcalling/analysis/library_sizes.tsv'
-gtf_filename    <- '../reference/ensembl/hg38.gtf'
+gtf_filename    <- '../reference/ucsc/hg38.gtf'
 
 sample_ids            <- list.files('03_aligned/', full.names=FALSE) %>% .[str_ends(.,'star_aligned.bam')] %>% str_remove('.star_aligned.bam')
 treatment_conditions  <- 'MAVS'
 control_condition     <- 'd103-467'
 metadata_filename     <- 'metadata.tsv'
+gtf_database          <- 'ucsc'
 
 output_dir            <- '04_peakcalling/analysis/plots/'
+output_signal         <- '04_peakcalling/analysis/summary.txt'
 
 threads               <- 32
 
@@ -35,11 +37,14 @@ threads               <- 32
 #control_condition     <- snakemake@params[['control_condition'   ]]
 #metadata_filename     <- snakemake@params[['metadata'            ]]
 #sample_ids            <- snakemake@params[['sample_ids'          ]]
+#gtf_database          <- snakemake@params[['database'            ]]
 #
 #output_dir              <- snakemake@output[['plot_dir']]
+#output_signal           <- snakemake@output[['summary_file']]
 #
 #threads                 <- snakemake@threads
 
+write_tsv(data.frame(), output_signal)
 
 plan(multisession, workers=threads)
 #TODO normalise bam files against each other using RPKM
@@ -60,29 +65,68 @@ condition_offset = set_names((seq_along(conds) - 1)*-3, conds)
 
 print('Reading GTF')
 gtf <- rtracklayer::import(gtf_filename)
-gtf_genes <- gtf %>%
-	subset( type=='gene' ) %>% 
-	as.data.frame() %>% 
-	mutate(label=ifelse(is.na(Name), gene_id, paste0(gene_id, ' - ', Name))) %>% 
-	select(any_of(c('seqnames', 'start', 'end', 'width', 'strand', 'type', 'gene_id', 'label', 'gene_biotype', 'biotype', 'description', 'version'))) %>% 
-	mutate( num_siblings=1, cannonical=TRUE ) %>% 
-	rename( any_of(c(gene_biotype='biotype')) )
-transcripts2gene  <- gtf %>% 
-	subset( type=='transcript') %>% 
-	as.data.frame() %>% 
-	select(gene_id, transcript_id) %>% 
-	distinct() %>% 
-	group_by(gene_id) %>% 
-	mutate( num_siblings=n(), cannonical=seq_len(n()) == 1 ) %>% 
-	left_join(select(gtf_genes, gene_id, label, gene_biotype), by='gene_id')
-gtf_exons <- gtf %>%
-	subset( type=='exon' ) %>% 
-	as.data.frame() %>% 
-	select(any_of(c('seqnames', 'start', 'end', 'width', 'strand', 'type', 'gene_id', 'transcript_id', 'constitutive', 'exon_id'))) %>% 
-	left_join( transcripts2gene, by=c('gene_id', 'transcript_id') )
-common_gtf_columns <- c('seqnames', 'start', 'end', 'width', 'strand', 'type', 'gene_id', 'label', 'gene_biotype', 'num_siblings', 'cannonical')
-gtf <- rbind( select(gtf_genes, all_of(common_gtf_columns)), select(gtf_exons, all_of(common_gtf_columns)) )
+if( gtf_database == 'ucsc' ){
 
+	mart <- biomaRt::useEnsembl('ensembl', 'hsapiens_gene_ensembl')
+	missing_metadata <- biomaRt::getBM( attributes=c('ensembl_gene_id', 'external_gene_name', 'gene_biotype'), mart=mart, verbose=TRUE ) %>% 
+		rename(gene_name='external_gene_name', gene_id='ensembl_gene_id')
+	
+	gtf_genes <- gtf %>% 
+		subset( type=='transcript' ) %>% 
+		as.data.frame() %>% 
+		group_by(gene_id) %>% 
+		summarise( seqnames=seqnames[[1]], start=min(start), end=max(end), strand=strand[[1]] ) %>% 
+		left_join( missing_metadata, by='gene_id') %>% 
+		mutate( label=ifelse(gene_name != '', gene_name, gene_id) ) %>% 
+		mutate( width=end - start, type='gene' )
+	
+	transcripts2gene  <- gtf %>% 
+		subset( type=='transcript') %>% 
+		as.data.frame() %>% 
+		select(gene_id, transcript_id) %>% 
+		distinct() %>% 
+		group_by(gene_id) %>% 
+		mutate( num_siblings=n(), cannonical=seq_len(n()) == 1 )  %>% 
+		left_join(gtf_genes, select(any_of('gene_id', 'gene_biotype')), by='gene_id') %>% 
+		select(-seqnames, -start, -end, -width, -strand)
+	
+	gtf_exons <- gtf %>%
+		subset( type=='exon' ) %>% 
+		as.data.frame() %>% 
+		select(any_of(c('seqnames', 'start', 'end', 'width', 'strand', 'type', 'gene_id', 'transcript_id', 'constitutive', 'exon_id'))) %>% 
+		left_join( transcripts2gene, by=c('gene_id', 'transcript_id') ) %>% 
+		mutate( type='exon' )
+	
+	gtf_genes <- mutate( gtf_genes, num_siblings=1, cannonical=TRUE )
+	
+	common_gtf_columns <- c('seqnames', 'start', 'end', 'width', 'strand', 'type', 'gene_id', 'label', 'gene_biotype', 'num_siblings', 'cannonical')
+	gtf <- rbind( select(gtf_genes, any_of(common_gtf_columns)), select(gtf_exons, any_of(common_gtf_columns)) )
+}else{
+	gtf_genes <- gtf %>%
+		subset( type=='gene' ) %>% 
+		as.data.frame() %>% 
+		select(any_of(c('seqnames', 'start', 'end', 'width', 'strand', 'type', 'gene_id', 'Name', 'gene_biotype', 'biotype', 'description', 'version'))) %>% 
+		mutate( num_siblings=1, cannonical=TRUE ) %>% 
+		rename( any_of(c(gene_biotype='biotype')) ) %>% 
+		mutate( label = ifelse(is.na(Name), gene_id, Name))
+
+	transcripts2gene  <- gtf %>% 
+		subset( type=='transcript') %>% 
+		as.data.frame() %>% 
+		select(gene_id, transcript_id) %>% 
+		distinct() %>% 
+		group_by(gene_id) %>% 
+		mutate( num_siblings=n(), cannonical=seq_len(n()) == 1 ) %>% 
+		left_join(select(any_of('gtf_genes', 'gene_id', 'gene_biotype', 'gene_biotype')), by='gene_id')
+	gtf_exons <- gtf %>%
+		subset( type=='exon' ) %>% 
+		as.data.frame() %>% 
+		select(any_of(c('seqnames', 'start', 'end', 'width', 'strand', 'type', 'gene_id', 'transcript_id', 'constitutive', 'exon_id'))) %>% 
+		left_join( transcripts2gene, by=c('gene_id', 'transcript_id') )
+	common_gtf_columns <- c('seqnames', 'start', 'end', 'width', 'strand', 'type', 'gene_id', 'gene_biotype', 'num_siblings', 'cannonical')
+	gtf <- rbind( select(gtf_genes, any_of(common_gtf_columns)), select(gtf_exons, any_of(common_gtf_columns)) )
+}
+	
 print('Reading Diffbind Results')
 de_peaks        <- read_tsv(diffbind_peaks, show_col_types=FALSE) %>% mutate(siblings=1) %>% rename(any_of(c(chrom='seqnames')))
 de_peaks_gr     <- makeGRangesFromDataFrame( de_peaks, keep.extra.columns=TRUE )
@@ -106,6 +150,9 @@ cond_search_peaks <- cond_peaks %>%
 search_peaks <- rbind( de_search_peaks, select(cond_search_peaks, -width) ) %>% 
 	group_by(method) %>% 
 	mutate(method_rank=1:n())
+search_peaks <- search_peaks %>% 
+	subset( method == 'deq' ) %>% 
+	subset(significant)
 peaks        <- rbind( de_peaks       ,        cond_peaks                 )
 
 print('Loading simple track tools')
@@ -218,6 +265,7 @@ tracks_annotation <- function( obj=tracks_create(), df ){
 }
 
 tracks_plot <- function( obj ){
+	# obj <- track
 	tracks <- obj$tracks
 	
 	bars <- keep(tracks, map_chr(tracks, ~.$type) == 'shade' ) %>% 
@@ -244,7 +292,7 @@ tracks_plot <- function( obj ){
 	pileups <- keep(tracks, map_chr(tracks, ~.$type) == 'pileup' ) %>% 
 		map(~.$df) %>% 
 		bind_rows()
-	
+		
 	annotations <- keep(tracks, map_chr(tracks, ~.$type) == 'annotation' ) %>% 
 		map(~.$df) %>% 
 		bind_rows()
@@ -261,12 +309,17 @@ tracks_plot <- function( obj ){
 	p <- p +
 		geom_rect(aes(xmin=xmin, xmax=xmax, ymin=shade_bot, ymax=shade_top, fill=group, alpha=0.1*alpha), show.legend=FALSE, data=bars) +
 		geom_rect(aes(xmin=xmin, xmax=xmax, ymin=tab_bot  , ymax=tab_top  , fill=group, alpha=1.0*alpha), show.legend=TRUE , data=bars)  
-	p <- p +
-		geom_rect(aes(xmin=start    , xmax=end      , ymin=y_bot    , ymax=y_top    , fill=gene_biotype       ), data=annotations) +
-		geom_rect(aes(xmin=tss1_xmin, xmax=tss1_xmax, ymin=tss1_ymin, ymax=tss1_ymax, fill=gene_biotype       ), data=annotations) +
-		geom_rect(aes(xmin=tss2_xmin, xmax=tss2_xmax, ymin=tss2_ymin, ymax=tss2_ymax, fill=gene_biotype       ), data=annotations) +
-		geom_rect(aes(xmin=xmin     , xmax=xmax     , ymin=ymin     , ymax=ymax     , fill=colour, alpha=alpha), data=exon_annotations) +
-		geom_text(aes(x=(start+end)/2, y=label_y, label=label), data=annotations)
+	if( nrow(annotations) != 0 ){
+		p <- p +
+			geom_rect(aes(xmin=start    , xmax=end      , ymin=y_bot    , ymax=y_top    , fill=gene_biotype       ), data=annotations) +
+			geom_rect(aes(xmin=tss1_xmin, xmax=tss1_xmax, ymin=tss1_ymin, ymax=tss1_ymax, fill=gene_biotype       ), data=annotations) +
+			geom_rect(aes(xmin=tss2_xmin, xmax=tss2_xmax, ymin=tss2_ymin, ymax=tss2_ymax, fill=gene_biotype       ), data=annotations) +
+			geom_text(aes(x=(start+end)/2, y=label_y, label=label), data=annotations)
+	}
+	if( nrow(exon_annotations) != 0 ){
+		p <- p +
+			geom_rect(aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, fill=colour, alpha=alpha), data=exon_annotations) 
+	}
 	p <- p + 
 		geom_segment(aes(x  =xmin , xend=xmax, y   =y   , yend=y                                ), data=guides) +
 		geom_rect   (aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, fill=condition, alpha=alpha), data=pileups)
@@ -299,7 +352,7 @@ for( i in seq_along(data_ranges) ){
 	range_peaks <- GenomicRanges::pintersect(search_peaks, range_plot, drop.nohit.ranges=TRUE)
 	min_rank <- min(range_peaks$method_rank)
 	
-	if( length(subset(range_peaks, significant)) ){
+	if( length(subset(range_peaks, significant)) && nrow(range_gtf) ){
 		sample_range_pileup <- map_dfr(seq_along(bam_files), function(i){
 			sample_id       <- sample_ids[i]
 			condition       <- sample2condition[[sample_id]]
@@ -324,7 +377,9 @@ for( i in seq_along(data_ranges) ){
 				track <- tracks_shade_bar( track, range_de_peaks, group_column='method', direction='down', range=-1 )
 			}
 			
-			track <- tracks_annotation( track, range_gtf )
+			if(nrow(range_gtf) != 0){
+				track <- tracks_annotation( track, range_gtf )
+			}
 			
 			range_cond_peaks <- GenomicRanges::pintersect(makeGRangesFromDataFrame(cond_peaks, keep.extra.columns=TRUE), range_plot, drop.nohit.ranges=TRUE) %>% 
 				as.data.frame()

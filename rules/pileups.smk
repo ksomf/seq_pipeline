@@ -2,16 +2,14 @@ rule join_peakcall_data:
 	input:
 		idr_peaks     = os.path.join(config['peakcalling_dir'],'idr'    ,'merged_true_peaks.tsv'),
 		genrich_peaks = os.path.join(config['peakcalling_dir'],'genrich','merged_peaks.tsv'),
-		piranha_peaks = os.path.join(config['peakcalling_dir'],'piranha','merged_peaks.tsv'),
+		#piranha_peaks = os.path.join(config['peakcalling_dir'],'piranha','merged_peaks.tsv'),
 	output:
 		condition_peaks = os.path.join(config['peakcalling_dir'],'analysis','condition_peaks.tsv'),
-	params:
-		piranha_conditions = [ condition for condition in conditions for sample_id in condition2sample_ids[condition] ],
 	run:
 		df_idr     = pd.read_csv( input.idr_peaks    , sep='\t' )
 		df_genrich = pd.read_csv( input.genrich_peaks, sep='\t' )
-		df_piranha = pd.read_csv( input.piranha_peaks, sep='\t' )
-		res = pd.concat([df_idr, df_genrich, df_piranha])
+		#df_piranha = pd.read_csv( input.piranha_peaks, sep='\t' )
+		res = pd.concat([df_idr, df_genrich]) #, df_piranha])
 		res.to_csv( output.condition_peaks, sep='\t', index=False )
 
 rule join_diffbind_data:

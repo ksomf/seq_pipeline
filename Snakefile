@@ -32,6 +32,15 @@ metadata = pd.read_csv(config['metadata'], sep='\t')
 conditions = config['treatment_conditions'] + [config['control_condition']]
 sample_ids = metadata['sample_id']
 
+sample_readlist = []
+sample_id2reads = {}
+sample_id2bam   = { s:os.path.join(config['align_dir'], f'{s}.{config["aligner"]}_aligned.bam') for s in sample_ids }
+if need_to_align:
+	sample_readlist = list(chain(metadata['R1'],metadata['R2']))
+	sample_id2reads = dict(zip(metadata['sample_id'],zip(metadata['R1'],metadata['R2'])))
+else:
+	sample_id2bam   = dict(zip(metadata['sample_id'],metadata['bam']))
+
 ip_sample_id2input_sample_id = dict()
 metadata_ip_only    = []
 metadata_input_only = []
@@ -45,15 +54,16 @@ if config['pipeline'] == 'ripseq':
 	sample_ids_ip       = metadata_ip_only['sample_id']
 	condition2sample_ids = { g:df['sample_id'].to_list() for g, df in metadata_ip_only.groupby(['condition']) }
 	condition2input_ids  = { g:[ip_sample_id2input_sample_id[s] for s in condition2sample_ids[g]] for g in condition2sample_ids.keys() }
+	shared_input_controls = [ sample_id for sample_id in metadata_ip_only['matching_input_control'] if len(metadata_ip_only[metadata_ip_only['matching_input_control'] == sample_id]) > 1 ]
+	unique_file_bam = {}
+	for s in metadata_input_only['sample_id']:
+		res = sample_id2bam[s]
+		if np.isin( s, shared_input_controls ):
+			res = res.replace('.bam','copy.bam')
+		unique_file_bam[s] = res
 
-sample_readlist = []
-sample_id2reads = {}
-sample_id2bam   = { s:os.path.join(config['align_dir'], f'{s}.{config["aligner"]}_aligned.bam') for s in sample_ids }
-if need_to_align:
-	sample_readlist = list(chain(metadata['R1'],metadata['R2']))
-	sample_id2reads = dict(zip(metadata['sample_id'],zip(metadata['R1'],metadata['R2'])))
-else:
-	sample_id2bam   = dict(zip(metadata['sample_id'],metadata['bam']))
+
+
 print('Conditions')
 print(conditions)
 print('Conditin2samples')
@@ -89,6 +99,7 @@ include: 'rules/align_bowtie2.smk'
 include: 'rules/macs2.smk'
 include: 'rules/piranha.smk'
 include: 'rules/pepr.smk'
+include: 'rules/deq.smk'
 include: 'rules/thor.smk'
 include: 'rules/genrich.smk'
 include: 'rules/diffbind.smk'

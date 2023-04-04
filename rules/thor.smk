@@ -12,7 +12,7 @@ rule thor_diffbind:
 		genome             = os.path.join(config['reference_dir'],config['database'],f'{config["assembly"]}.fasta'),
 	output:
 		peaks  = os.path.join(config["peakcalling_dir"],'thor','run','{condition1}_vs_{condition2}-diffpeaks.bed'),
-		#npeaks = os.path.join(config["peakcalling_dir"],'thor','run','{condition1}_vs_{condition2}-diffpeaks.narrowPeak'), # thor currently fails to produce this file due to internal file handle problems
+		npeaks = os.path.join(config["peakcalling_dir"],'thor','run','{condition1}_vs_{condition2}-diffpeaks.narrowPeak'),
 		info   = os.path.join(config["peakcalling_dir"],'thor','run','{condition1}_vs_{condition2}-setup.info'),
 		config = os.path.join(config["peakcalling_dir"],'thor'      ,'{condition1}_vs_{condition2}-setup.config'), #thor fails if there are any files with the prefix in the output directory
 	params:
@@ -54,7 +54,7 @@ rule thor_diffbind:
 
 rule thor2tsv:
 	input:
-		thor_peaks = [ os.path.join( config['peakcalling_dir'], 'thor', 'run', f'{condition}_vs_{config["control_condition"]}-narrowPeak.bed' ) for condition in config['treatment_conditions'] ],
+		thor_peaks = [ os.path.join( config['peakcalling_dir'], 'thor', 'run', f'{condition}_vs_{config["control_condition"]}-diffpeaks.narrowPeak' ) for condition in config['treatment_conditions'] ],
 	output:
 		diffbind_peaks = os.path.join(config['peakcalling_dir'],'thor','merged_peaks.tsv'),
 	params:
@@ -71,6 +71,7 @@ rule thor2tsv:
 			df['stat']        = 10**(-df['stat'])
 			df['significant'] = df['stat'] < params.thor_cuttoff
 			df['stat_type']   = 'pvalues'
+			df['strand']      = '*'
 			res.append(df)
 		res = pd.concat(res)
 		res = res[['chrom', 'start', 'end', 'strand', 'name', 'method', 'condition', 'stat', 'stat_type', 'significant' ]]
