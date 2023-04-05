@@ -117,14 +117,13 @@ rule all:
 		diffbind_pepr=os.path.join(config["peakcalling_dir"],'pepr','MAVSvsd103-467_PePr_chip1_peaks.bed'),
 		genrich_mavs=os.path.join(config["peakcalling_dir"],'genrich','MAVS_peaks.narrowPeak'),
 		genrich_ds=os.path.join(config["peakcalling_dir"],'genrich','d103-467_peaks.narrowPeak'),
-		qc='multiqc_report.html',
+		qc=rules.multiqc_report.output.report,
 
 rule dev:
 	input:
-		plot_dir=os.path.join(config['peakcalling_dir'],'analysis','summary.txt'),
-		#aligned_bam=[os.path.join(config['align_dir'], f'{sample_id}.star_aligned.bam') for sample_id in sample_ids]
-		qc='multiqc_report.html',
+		pileups=rules.plot_pileups.output.summary_file,
+		qc     =rules.multiqc_report.output.report,
 
 rule dev2:
 	input:
-		qc='multiqc_report.html',
+		qc=rules.multiqc_report.output.report,

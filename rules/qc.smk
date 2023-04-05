@@ -13,7 +13,7 @@ rule make_multiqc_list:
 	run:
 		open(output[0], 'w+').write('\n'.join(input))
 
-rule run_multiqc:
+rule multiqc_report:
 	input:  'multiqc_report_files.txt'
 	output:
 		report='multiqc_report.html',
