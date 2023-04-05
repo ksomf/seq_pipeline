@@ -14,7 +14,7 @@ rule make_multiqc_list:
 		open(output[0], 'w+').write('\n'.join(input))
 
 rule multiqc_report:
-	input:  'multiqc_report_files.txt'
+	input:  rules.make_multiqc_list.output
 	output:
 		report='multiqc_report.html',
 		data=directory('multiqc_data/'),
