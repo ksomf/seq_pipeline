@@ -33,8 +33,11 @@ gtf_filename               <- snakemake@input[['gtf']]
 bam_infos                  <- snakemake@input[['bam_infos']]
 
 read_length                <- snakemake@params[['read_length']]
+
+threads                   <- snakemake@threads
+
 avg_fragment_length        <- bam_infos %>%
-	map_dfr( read_tsv ) %>%
+	map_dfr( read_tsv, show_col_types=FALSE ) %>%
 	mutate( reads = `1st fragments`) %>%
 	mutate( avg_insert_length   = `insert size average`) %>%
 	mutate( avg_fragment_length = 2*read_length + avg_insert_length) %>%
@@ -72,7 +75,7 @@ deq <- function(input.bams,ip.bams,treated.input.bams,treated.ip.bams,
 	all.bams <- c(input.bams,ip.bams,treated.input.bams,treated.ip.bams)
 	peak.data <- peaks
 	bamfiles <- all.bams
-	peaks <- deq:::count.reads(peaks,all.bams,paired.end,extension,nthreads=32)
+	peaks <- deq:::count.reads(peaks,all.bams,paired.end,extension,nthreads=threads)
 	peak.counts <- DESeq2::counts(peaks$peak.counts)
 	
 	#run DESeq2, edgeR, and QNB to predict changes in m6A methylation

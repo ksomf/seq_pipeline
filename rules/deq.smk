@@ -23,6 +23,7 @@ rule deq_diffbind:
 		peaks  = os.path.join(config['peakcalling_dir'], 'deq', '{condition1}_vs_{condition2}.txt'),
 	params:
 		read_length = config['readlength']
+	threads: 8
 	conda: '../envs/deq.yml'
 	script: '../scripts/deq.R'
 
@@ -31,12 +32,13 @@ rule deq2tsv:
 		deq_peaks  = [ os.path.join(config['peakcalling_dir'],'deq',f'{condition}_vs_{config["control_condition"]}.txt')        for condition in config['treatment_conditions'] ],
 		deq_counts = [ os.path.join(config['peakcalling_dir'],'deq',f'{condition}_vs_{config["control_condition"]}.counts.txt') for condition in config['treatment_conditions'] ],
 	output:
-		diffbind_peaks = os.path.join(config['peakcalling_dir'], 'deq', 'merged_peaks.tsv')
+		diffbind_peaks = os.path.join(config['peakcalling_dir'], 'deq', 'merged_peaks.tsv'),
+		log_peaks      = os.path.join(config['peakcalling_dir'], 'deq', 'all_merged_peaks.tsv'),
 	params:
 		deq_conditions      = config['treatment_conditions'],
-		deq_cuttoff         = 0.1,
-		deq_lfc_cuttoff     = 1,
-		deq_peak_min_count  = 10,
+		deq_cuttoff         = 0.1, #0.05 in paper
+		deq_lfc_cuttoff     = 0.5, #1    in paper
+		deq_peak_min_count  = 10,  #10   in paper, although taking average count here
 	run:
 		res = []
 		for deq_filename, count_filename, deq_condition in zip(input.deq_peaks, input.deq_counts, params.deq_conditions):
@@ -59,6 +61,7 @@ rule deq2tsv:
 			df['stat_type']   = 'min_adj_pvalue'
 			res.append(df)
 		res = pd.concat(res)
+		res.to_csv( output.log_peaks, sep='\t', index=False )
 		res = res[['chrom', 'start', 'end', 'strand', 'name', 'method', 'condition', 'stat', 'stat_type', 'significant' ]]
 		res = res.sort_values('stat')
 		res.to_csv( output.diffbind_peaks, sep='\t', index=False )

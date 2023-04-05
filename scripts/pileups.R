@@ -152,7 +152,9 @@ search_peaks <- rbind( de_search_peaks, select(cond_search_peaks, -width) ) %>%
 	mutate(method_rank=seq_len(n()))
 search_peaks <- search_peaks %>% 
 	subset( method == 'deq' ) %>% 
-	subset(significant)
+	arrange( desc(significant), stat ) %>% 
+	slice_head( n=50 )
+	#subset(significant)
 peaks        <- rbind( de_peaks       ,        cond_peaks                 )
 
 print('Loading simple track tools')
@@ -352,7 +354,7 @@ for( i in seq_along(data_ranges) ){
 	range_peaks <- GenomicRanges::pintersect(search_peaks, range_plot, drop.nohit.ranges=TRUE)
 	min_rank <- min(range_peaks$method_rank)
 	
-	if( length(subset(range_peaks, significant)) && nrow(range_gtf) ){
+	if( length(range_peaks) && nrow(range_gtf) ){
 		sample_range_pileup <- map_dfr(seq_along(bam_files), function(i){
 			sample_id       <- sample_ids[i]
 			condition       <- sample2condition[[sample_id]]
@@ -367,7 +369,7 @@ for( i in seq_along(data_ranges) ){
 		})
 		if( length( sample_range_pileup )){
 			sample_range_pileup <- sample_range_pileup %>% 
-				mutate(normcount=count/max(count))
+				mutate(normcount=log1p(count)/max(log1p(count)))
 			
 			track <- tracks_create() 
 			
@@ -397,9 +399,9 @@ for( i in seq_along(data_ranges) ){
 			
 			p <- tracks_plot(track)
 			dir.create( output_dir, showWarnings=TRUE, recursive=TRUE )
-			save_name = paste0(output_dir, '/pileup_', min_rank, '_chr', as.character(seqnames(range_plot)), ':', start(range_plot), '-', end(range_plot), '.pdf')
+			save_name = paste0(output_dir, '/pileup_chr', as.character(seqnames(range_plot)), ':', start(range_plot), '-', end(range_plot), '.pdf')
 			save_name = str_replace( save_name, 'chrchr', 'chr' )
-			ggsave(save_name, plot=p)
+			ggsave(save_name, plot=p, width=24, height=8)
 			print(save_name)
 			
 			#pmap(list(range_gtf_genes$start, range_gtf_genes$end, ifelse(range_gtf_genes$name=='', range_gtf_genes$parent_gene, range_gtf_genes$name)), function(start, end, name){
