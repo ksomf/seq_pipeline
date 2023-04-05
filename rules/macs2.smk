@@ -16,10 +16,12 @@ rule macs2_peakcalling:
 		input_seq = lambda wildcards: sample_id2bam[ip_sample_id2input_sample_id[wildcards.sample_id]],
 	output: multiext(os.path.join(config["peakcalling_dir"], '{sample_id}_{peak_types}'), '_peaks.narrowPeak', '_peaks.xls', '_summits.bed', '_treat_pileup.bdg', '_control_lambda.bdg')
 	params:
-		pvalue = lambda wildcards: macs2_type2pvalue[wildcards.peak_types],
-		outdir = lambda wildcards, output: os.path.dirname(output[0]),
-		slocal = 3000, #Average fragment length in ripseq fairly hight
-		prefix = lambda wildcards, output: os.path.basename(output[0]).replace('_peaks.narrowPeak', ''),
+		pvalue  = lambda wildcards: macs2_type2pvalue[wildcards.peak_types],
+		outdir  = lambda wildcards, output: os.path.dirname(output[0]),
+		slocal  = 3000, #Average fragment length in ripseq fairly hight
+		prefix  = lambda wildcards, output: os.path.basename(output[0]).replace('_peaks.narrowPeak', ''),
+		fraglen = config['readlength']
+	log: os.path.join(config["peakcalling_dir"], '{sample_id}_{peak_types}.log')
 	conda: '../envs/macs2.yml'
 	shell:
 	 '''
@@ -34,7 +36,7 @@ rule macs2_peakcalling:
 		               --slocal    {params.slocal}   \
 		               --bdg                         \
 		               --SPMR                        \
-		               --call-summits
+		               --call-summits > {log}
 	 '''
 
 rule pooled_bams:
@@ -86,13 +88,15 @@ use rule macs2_peakcalling as macs_peakcalling_pseudo with:
 	input:
 		ip_seq    =                   os.path.join(config["peakcalling_dir"],'idr','pseudo','{sample_id}_pseudo'+'{n}.bam'),
 		input_seq = lambda wildcards: os.path.join(config["peakcalling_dir"],'idr','pseudo',ip_sample_id2input_sample_id[wildcards.sample_id]+'_pseudo{n}.bam'),
-	output:                 multiext(os.path.join(config["peakcalling_dir"],'idr','{sample_id}_pseudo{n}_relaxed'), '_peaks.narrowPeak', '_summits.bed', '_treat_pileup.bdg', '_control_lambda.bdg'),
+	output:                  multiext(os.path.join(config["peakcalling_dir"],'idr','{sample_id}_pseudo{n}_relaxed'), '_peaks.narrowPeak', '_summits.bed', '_treat_pileup.bdg', '_control_lambda.bdg'),
+	log:                              os.path.join(config["peakcalling_dir"],'idr','{sample_id}_pseudo{n}_relaxed.log')
 
 use rule macs2_peakcalling as macs_peakcalling_pooled with:
 	input:
 		ip_seq    =                   os.path.join(config["peakcalling_dir"],'idr','pooled','{sample1_id}_{sample2_id}_pooled{n}.bam'),
 		input_seq = lambda wildcards: os.path.join(config["peakcalling_dir"],'idr','pooled',ip_sample_id2input_sample_id[wildcards.sample1_id]+'_'+ip_sample_id2input_sample_id[wildcards.sample2_id]+'_pooled{n}.bam'),
-	output:                 multiext(os.path.join(config["peakcalling_dir"],'idr','{sample1_id}_{sample2_id}_pooled{n}_relaxed'), '_peaks.narrowPeak', '_summits.bed', '_treat_pileup.bdg', '_control_lambda.bdg'),
+	output:                  multiext(os.path.join(config["peakcalling_dir"],'idr','{sample1_id}_{sample2_id}_pooled{n}_relaxed'), '_peaks.narrowPeak', '_summits.bed', '_treat_pileup.bdg', '_control_lambda.bdg'),
+	log:                              os.path.join(config["peakcalling_dir"],'idr','{sample1_id}_{sample2_id}_pooled{n}_relaxed.log')
 
 rule sort_narrow_peaks:
 	input:             os.path.join(config["peakcalling_dir"], '{file}_peaks.narrowPeak'),
