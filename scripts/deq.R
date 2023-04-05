@@ -1,3 +1,4 @@
+library(yaml)
 library(locfit)
 library(tidyverse)
 library(deq)
@@ -19,7 +20,7 @@ library(deq)
 #gtf_filename               <- '../reference/ucsc/hg38.gtf'
 #
 #read_length                <- 75
-#
+
 #output_filename <- '04_peakcalling/deq/MAVS_vs_d103-467.txt'
 
 # SNAKEMAKE
@@ -29,43 +30,20 @@ condition2_ip_filenames    <- snakemake@input[['condition2_ips']]
 condition2_input_filenames <- snakemake@input[['condition2_inputs']]
 peak_filename              <- snakemake@input[['peaks']]
 gtf_filename               <- snakemake@input[['gtf']]
+bam_infos                  <- snakemake@input[['bam_infos']]
 
 read_length                <- snakemake@params[['read_length']]
+avg_fragment_length        <- bam_infos %>%
+	map_dfr( read_tsv ) %>%
+	mutate( reads = `1st fragments`) %>%
+	mutate( avg_insert_length   = `insert size average`) %>%
+	mutate( avg_fragment_length = 2*read_length + avg_insert_length) %>%
+	mutate( total_reads = sum(reads) ) %>%
+	mutate( inte = (reads/total_reads) * avg_fragment_length ) %>%
+	pull( inte ) %>%
+	sum()
 
-output_logfile  <- snakemake@log[[1]]
 output_filename <- snakemake@output[['peaks']]
-
-sink(output_logfile)
-
-#cnts = peak.counts
-#run.deseq2 <- function(cnts,meta){
-#	inf.dds <- DESeq2::DESeqDataSetFromMatrix(countData = cnts,colData = meta,design = ~Condition+IP+Condition:IP)
-#	inf.dds.LRT <- DESeq2::DESeq(inf.dds,betaPrior=FALSE, test="LRT",
-#								 full=~Condition+IP+Condition:IP,reduced=~Condition+IP)    
-#	inf.dds.res <- DESeq2::results(inf.dds.LRT)
-#	results <- as.data.frame(cbind(inf.dds.res$pvalue,inf.dds.res$padj))
-#	colnames(results) <- c("deseq2.p","deseq2.padj")
-#	return(results)
-#}
-#
-	#meta = meta.data
-#run.tools <- function(results,peak.counts,meta,tool,input.bams,ip.bams,treated.input.bams,treated.ip.bams){
-#	tools <- strsplit(tool,'')[[1]]
-#	full.results <- TRUE
-#	if ('d' %in% tools){
-#		results <- cbind(results,deq:::run.deseq2(peak.counts,meta))
-#	}
-#	if ('e' %in% tools){
-#		results <- cbind(results,deq:::run.edger(peak.counts,meta))
-#	}
-#	if ('q' %in% tools){
-#		results <- cbind(results,deq:::run.qnb(peak.counts,meta))
-#	}
-#	if ('m' %in% tools){
-#		results <- cbind(results,deq:::run.metdiff(peak.counts,meta))
-#	}
-#	return(results)
-#}
 
 deq <- function(input.bams,ip.bams,treated.input.bams,treated.ip.bams,
 				peak.files,gtf,paired.end=FALSE,outfi='deq_results.txt',
@@ -131,6 +109,7 @@ deq( input.bams         = condition2_input_filenames
    , peak.files         = peak_filename
    , gtf                = gtf_filename
    , readlen            = read_length
+   , fraglen            = avg_fragment_length
    , paired.end         = TRUE
    , outfi              = output_filename            )
 

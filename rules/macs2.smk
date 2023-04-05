@@ -169,7 +169,6 @@ rule idr_combine:
 	conda: '../envs/environment.yml'
 	shell: 'cat {input} > {output}'
 
-from collections import Counter
 rule idr2tsv:
 	input:
 		idr_filenames = [ os.path.join(config['peakcalling_dir'],'idr',f'{condition}_{sample1_id}_{sample2_id}_true.tsv') for condition in conditions for sample1_id, sample2_id in combinations(condition2sample_ids[condition], 2) ],

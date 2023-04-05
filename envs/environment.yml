@@ -13,3 +13,4 @@ dependencies:
   - flexbar
   - pybedtools
   - graphviz
+  - pyyaml

@@ -1,14 +1,18 @@
 # snakemake --cores 32 --use-conda --conda-frontend mamba dev
 
+#TODO(KIM): Use rules. .inputa forms where it makes sense
 #TODO(KIM): Should I reduce all genomics to the standard chromosomes?
 #TODO(KIM): Decide if I should delete diffreps and multigps
 #TODO(KIM): Make the blacklist use the standard chromosome names by using the chrom report to map
 
-
 import numpy      as np
 import pandas     as pd
 import pybedtools as bedtools
-from itertools import chain
+
+import yaml
+
+from itertools   import chain
+from collections import Counter
 
 configfile: 'config.yml'
 defaults = { 'sra_dir'              : '01_sra_download'
@@ -45,14 +49,14 @@ ip_sample_id2input_sample_id = dict()
 metadata_ip_only    = []
 metadata_input_only = []
 sample_ids_ip       = []
-condition2sample_ids = { g:df['sample_id'].to_list() for g, df in metadata.groupby(['condition']) }
+condition2sample_ids = { g[0]:df['sample_id'].to_list() for g, df in metadata.groupby(['condition']) }
 condition2input_ids  = {}
 if config['pipeline'] == 'ripseq':
 	ip_sample_id2input_sample_id = dict(filter(lambda xs: xs[0] != xs[1], zip(metadata['sample_id'],metadata['matching_input_control'])))
 	metadata_ip_only    = metadata[ metadata['method']=='IP' ]
 	metadata_input_only = metadata[ metadata['method']=='Input' ]
 	sample_ids_ip       = metadata_ip_only['sample_id']
-	condition2sample_ids = { g:df['sample_id'].to_list() for g, df in metadata_ip_only.groupby(['condition']) }
+	condition2sample_ids = { g[0]:df['sample_id'].to_list() for g, df in metadata_ip_only.groupby(['condition']) }
 	condition2input_ids  = { g:[ip_sample_id2input_sample_id[s] for s in condition2sample_ids[g]] for g in condition2sample_ids.keys() }
 	shared_input_controls = [ sample_id for sample_id in metadata_ip_only['matching_input_control'] if len(metadata_ip_only[metadata_ip_only['matching_input_control'] == sample_id]) > 1 ]
 	unique_file_bam = {}

@@ -33,20 +33,21 @@ wildcard_constraints:
 rule filter_bam:
 	input:
 		sorted_file=multiext(os.path.join(config['align_dir'], '{sample_id}.{aligner}_{align_type}.unfiltered'), '.bam', '.bam.bai'),
-		whitelist=lambda wildcards: os.path.join(config['reference_dir'],config['database'],f'{config["assembly"]}_whitelist.bed') if wildcards.align_type == 'aligned' else None
+		whitelist=os.path.join(config['reference_dir'],config['database'],f'{config["assembly"]}_whitelist.bed')
 	output:
 		filtered_file=os.path.join(config['align_dir'], '{sample_id}.{aligner}_{align_type}.bam'),
 	params:
 		phred_quality_cuttoff=30,
 		pass_flag=create_align_flag(['read_mapped_as_part_of_pair']),
 		fail_flag=create_align_flag(['read_is_unmapped', 'mate_is_unmapped', 'not_primary_alignment', 'read_fails_platform_or_vendor_checks', 'read_is_pcr_or_optical_duplicate'])
+	threads: 8
 	conda: '../envs/samtools.yml'
 	shell:
 		'''
-			if [ -e "{input.whitelist}" ]; then
-				samtools view -q {params.phred_quality_cuttoff} -F {params.fail_flag} -f {params.pass_flag} -L {input.whitelist} -o {output} {input.sorted_file[0]}
-			else
-				samtools view -q {params.phred_quality_cuttoff} -F {params.fail_flag} -f {params.pass_flag}                      -o {output} {input.sorted_file[0]}
+			if [[ "{wildcards.align_type}" == "aligned" ]]; then
+				samtools view -@ {threads} -q {params.phred_quality_cuttoff} -F {params.fail_flag} -f {params.pass_flag} -L {input.whitelist} -o {output} {input.sorted_file[0]}
+			elif [[ "{wildcards.align_type}" == "aligned.transcriptome" ]]; then
+				samtools view -@ {threads} -q {params.phred_quality_cuttoff} -F {params.fail_flag} -f {params.pass_flag}                      -o {output} {input.sorted_file[0]}
 			fi
 		'''
 
@@ -56,6 +57,20 @@ rule bam_reads:
 	params:
 	conda: '../envs/samtools.yml'
 	shell: 'samtools view -c {input} > {output}'
+
+rule bam_info:
+	input:  os.path.join('{path}', '{bam}.bam'),
+	output: os.path.join('{path}', '{bam}.baminfo.yml'),
+	conda: '../envs/samtools.yml'
+	shell: 'samtools stats {input} | grep ^SN | cut -f 2- | sed "s/\t/ /g" > {output}'
+
+rule bam_info2tsv:
+	input:  os.path.join('{path}', '{bam}.baminfo.yml'),
+	output: os.path.join('{path}', '{bam}.baminfo.tsv'),
+	run:
+		obj = yaml.load(open(input[0],'r').read(), Loader=yaml.Loader)
+		df  = pd.DataFrame([obj])
+		df.to_csv( output[0], sep='\t', index=False )
 
 rule bam2bed:
 	input:             os.path.join('{path}', '{bamfile}.bam'),

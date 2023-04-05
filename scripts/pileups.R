@@ -149,7 +149,7 @@ cond_search_peaks <- cond_peaks %>%
 
 search_peaks <- rbind( de_search_peaks, select(cond_search_peaks, -width) ) %>% 
 	group_by(method) %>% 
-	mutate(method_rank=1:n())
+	mutate(method_rank=seq_len(n()))
 search_peaks <- search_peaks %>% 
 	subset( method == 'deq' ) %>% 
 	subset(significant)
