@@ -1,0 +1,12 @@
+name: seq-pipeline-bullseye
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - python=3
+  - perl-app-cpanminus
+  - samtools
+  - bedtools
+  - tabix
+  - gcc
+  - expat
