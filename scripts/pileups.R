@@ -147,15 +147,20 @@ cond_search_peaks <- cond_peaks %>%
 	}) %>% 
 	rename(any_of(c(chrom='seqnames')))
 
-search_peaks <- rbind( de_search_peaks, select(cond_search_peaks, -width) ) %>% 
-	group_by(method) %>% 
-	mutate(method_rank=seq_len(n()))
-search_peaks <- search_peaks %>% 
+# search_peaks <- rbind( de_search_peaks, select(cond_search_peaks, -width) ) %>% 
+# 	group_by(method) %>% 
+# 	mutate(method_rank=seq_len(n()))
+search_peak_deq <- de_search_peaks %>% 
 	subset( method == 'deq' ) %>% 
 	arrange( desc(significant), stat ) %>% 
-	slice_head( n=50 )
-	#subset(significant)
-peaks        <- rbind( de_peaks       ,        cond_peaks                 )
+	slice_head( n=30 )
+search_peaks_rest <- de_search_peaks %>%
+	subset( method != 'deq' ) %>%
+	group_by(method) %>%
+	slice_head( n=10 )
+search_peaks <- rbind( search_peak_deq, search_peaks_rest )
+
+peaks <- rbind( de_peaks, cond_peaks)
 
 print('Loading simple track tools')
 method_offset <- function(xs){
@@ -189,7 +194,8 @@ tracks_shade_bar <- function( obj=tracks_create(), df, group_column, direction, 
 		      , tab_bot=map_dbl(group, ~base_y+tab_height*(group2num[[.x]]-1)) ) %>% 
 		mutate( xmin=start, xmax=end, alpha=1.0/siblings ) %>%
 		mutate( alpha=ifelse(significant, alpha, alpha*0.25) ) %>% 
-		select( xmin, xmax, tab_top, tab_bot, group, alpha )
+		mutate( label = paste0( stat_type, ':', stat ) ) %>%
+		select( xmin, xmax, tab_top, tab_bot, group, alpha, label )
 	
 	obj$width <- obj$width + shade_width + obj$padding
 	obj$tracks <- append( obj$tracks, list(list( type='shade', df=df_plot, y_bot=min(df_plot$tab_bot), y_top=max(df_plot$tab_top), direction=direction, start_index=shade_index, range=range )) )
@@ -310,7 +316,8 @@ tracks_plot <- function( obj ){
 	p <- ggplot()
 	p <- p +
 		geom_rect(aes(xmin=xmin, xmax=xmax, ymin=shade_bot, ymax=shade_top, fill=group, alpha=0.1*alpha), show.legend=FALSE, data=bars) +
-		geom_rect(aes(xmin=xmin, xmax=xmax, ymin=tab_bot  , ymax=tab_top  , fill=group, alpha=1.0*alpha), show.legend=TRUE , data=bars)  
+		geom_rect(aes(xmin=xmin, xmax=xmax, ymin=tab_bot  , ymax=tab_top  , fill=group, alpha=1.0*alpha), show.legend=TRUE , data=bars)
+		#geom_text(aes(x=(xmin+xmax)/2, y=(tab_bot+tab_top)/2, label=label), colour='white'              , show.legend=FALSE, data=bars)
 	if( nrow(annotations) != 0 ){
 		p <- p +
 			geom_rect(aes(xmin=start    , xmax=end      , ymin=y_bot    , ymax=y_top    , fill=gene_biotype       ), data=annotations) +
@@ -324,7 +331,8 @@ tracks_plot <- function( obj ){
 	}
 	p <- p + 
 		geom_segment(aes(x  =xmin , xend=xmax, y   =y   , yend=y                                ), data=guides) +
-		geom_rect   (aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, fill=condition, alpha=alpha), data=pileups)
+		geom_rect   (aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, fill=condition, alpha=alpha), data=pileups) #+
+		#geom_line   (aes(x  =(xmin+xmax)/2, y=ymax, group=condition, colour=condition, alpha=alpha), data=pileups)
 	p +
 		scale_colour_tableau() +
 		scale_fill_tableau() +
@@ -352,7 +360,6 @@ for( i in seq_along(data_ranges) ){
 	pileup_params   <- PileupParam( distinguish_nucleotides=FALSE, distinguish_strands=FALSE ) #PileupParam(distinguish_nucleotides=FALSE)
 	
 	range_peaks <- GenomicRanges::pintersect(search_peaks, range_plot, drop.nohit.ranges=TRUE)
-	min_rank <- min(range_peaks$method_rank)
 	
 	if( length(range_peaks) && nrow(range_gtf) ){
 		sample_range_pileup <- map_dfr(seq_along(bam_files), function(i){
@@ -399,7 +406,7 @@ for( i in seq_along(data_ranges) ){
 			
 			p <- tracks_plot(track)
 			dir.create( output_dir, showWarnings=TRUE, recursive=TRUE )
-			save_name = paste0(output_dir, '/pileup_chr', as.character(seqnames(range_plot)), ':', start(range_plot), '-', end(range_plot), '.pdf')
+			save_name = paste0(output_dir, '/pileup_chr', as.character(seqnames(range_plot)), '.', start(range_plot), '-', end(range_plot), '.pdf')
 			save_name = str_replace( save_name, 'chrchr', 'chr' )
 			ggsave(save_name, plot=p, width=24, height=8)
 			print(save_name)

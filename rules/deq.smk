@@ -65,4 +65,3 @@ rule deq2tsv:
 		res = res[['chrom', 'start', 'end', 'strand', 'name', 'method', 'condition', 'stat', 'stat_type', 'significant' ]]
 		res = res.sort_values('stat')
 		res.to_csv( output.diffbind_peaks, sep='\t', index=False )
-

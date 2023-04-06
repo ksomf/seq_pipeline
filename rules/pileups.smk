@@ -54,5 +54,6 @@ rule plot_pileups:
 		control_condition    = config['control_condition'],
 		metadata             = config['metadata'],
 		sample_ids           = sample_ids,
+	retries: 3
 	conda: '../envs/pileups.yml'
 	script: '../scripts/pileups.R'
