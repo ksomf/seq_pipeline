@@ -111,3 +111,14 @@ use rule star_sorted_bam as star_sorted_transcriptome_bam with:
 	output:
 		sorted_file=os.path.join(config['align_dir'], '{sample_id}.star_aligned.transcriptome.unfiltered.bam'),
 
+#rule rsem_bam_transcipt2genome_coords: #TODO switch star index generation to the one from rsem-prepare-reference
+#	input:
+#		tbam  = os.path.join(config['align_dir'], '{sample_id}.star_aligned.transcriptome.bam'),
+#		fasta = os.path.join(config['reference_dir'],config['database'],'{config["assembly"]}.fasta'),
+#		gtf   = os.path.join(config['reference_dir'],config['database'],'{config["assembly"]}.gtf'),
+#	output: 
+#		gbam = os.path.join(config['align_dir'], '{sample_id}.star_aligned.transcriptome_genome.bam'),
+#	conda: '../envs/align_rsem.yml'
+#	threads: 16
+#	shell: 'rsem-tbam2gbam '
+
