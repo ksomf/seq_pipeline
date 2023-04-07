@@ -3,10 +3,9 @@ channels:
   - bioconda
   - conda-forge
 dependencies:
-  - python=3
-  - perl-app-cpanminus
-  - samtools
-  - bedtools
-  - tabix
-  - gcc
-  - expat
+ - gcc_linux-64
+ - perl-bioperl=1.7.2
+ - htslib=1.12
+ - samtools=1.12
+ - bedtools=2.30.0
+ - perl-app-cpanminus

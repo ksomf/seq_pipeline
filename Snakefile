@@ -19,10 +19,13 @@ defaults = { 'sra_dir'              : '01_sra_download'
            , 'fastq_dir'            : '02_fastq'
            , 'align_dir'            : '03_aligned'
            , 'peakcalling_dir'      : '04_peakcalling'
+           , 'stamp_dir'            : '04_stamp'
            , 'metadata_file'        : 'metadata.tsv'
            , 'reference_dir'        : 'reference'
            , 'database'             : 'ucsc'
            , 'treatment_conditions' : []
+           , 'simple_comparisons'   : []
+           , 'complex_comparisons'  : []
            , 'control_condition'    : None }
 for k, v in defaults.items():
 	if k not in config:
@@ -33,7 +36,6 @@ need_to_peakcall = config['pipeline'] == 'ripseq'
 need_to_stamp    = config['pipeline'] == 'stamp'
 
 metadata = pd.read_csv(config['metadata'], sep='\t')
-conditions = config['treatment_conditions'] + [config['control_condition']]
 sample_ids = metadata['sample_id']
 
 sample_readlist = []
@@ -45,6 +47,7 @@ if need_to_align:
 else:
 	sample_id2bam   = dict(zip(metadata['sample_id'],metadata['bam']))
 
+sample_id2control_id = dict()
 ip_sample_id2input_sample_id = dict()
 metadata_ip_only    = []
 metadata_input_only = []
@@ -52,6 +55,7 @@ sample_ids_ip       = []
 condition2sample_ids = { g[0]:df['sample_id'].to_list() for g, df in metadata.groupby(['condition']) }
 condition2input_ids  = {}
 if config['pipeline'] == 'ripseq':
+	conditions = config['treatment_conditions'] + [config['control_condition']]
 	ip_sample_id2input_sample_id = dict(filter(lambda xs: xs[0] != xs[1], zip(metadata['sample_id'],metadata['matching_input_control'])))
 	metadata_ip_only    = metadata[ metadata['method']=='IP' ]
 	metadata_input_only = metadata[ metadata['method']=='Input' ]
@@ -65,17 +69,28 @@ if config['pipeline'] == 'ripseq':
 		if np.isin( s, shared_input_controls ):
 			res = res.replace('.bam','copy.bam')
 		unique_file_bam[s] = res
+	print('Conditions')
+	print(conditions)
+	print('Conditin2samples')
+	print(condition2sample_ids)
+	print('Conditin2inputs')
+	print(condition2input_ids)
+	print('Sample_id2input_id')
+	print(ip_sample_id2input_sample_id)
+elif config['pipeline'] == 'stamp':
+	conditions = list(set(metadata['condition']))
+	sample_id2matching_ids = { d['sample_id']:{ condition:d[f'matching_{condition}'] for condition in conditions if condition != d['condition']} for d in metadata.to_dict(orient='records') }
 
-
-
-print('Conditions')
-print(conditions)
-print('Conditin2samples')
-print(condition2sample_ids)
-print('Conditin2inputs')
-print(condition2input_ids)
-print('Sample_id2input_id')
-print(ip_sample_id2input_sample_id)
+	print('Conditions')
+	print(conditions)
+	print('Conditin2samples')
+	print(condition2sample_ids)
+	print('Sample_id2control_id')
+	print(sample_id2matching_ids)
+	print('Simple Comparisons')
+	print(config['simple_comparisons'])
+	print('Complex Comparisons')
+	print(config['complex_comparisons'])
 
 multiqc_inputs = []
 #generate multiqc files
@@ -87,19 +102,23 @@ if need_to_peakcall:
 	multiqc_inputs += [ os.path.join(config["peakcalling_dir"], f'{sample_id}_full_peaks.xls') for sample_id in sample_ids_ip ]
 
 wildcard_constraints:
-	sample_id  = '|'.join(sample_ids),
-	sample1_id = '|'.join(sample_ids),
-	sample2_id = '|'.join(sample_ids),
-	aligner    = '|'.join(['star','bowtie2']),
-	condition  = '|'.join(conditions),
-	condition1 = '|'.join(conditions),
-	condition2 = '|'.join(conditions),
+	sample_id        = '|'.join(sample_ids),
+	sample1_id       = '|'.join(sample_ids),
+	sample2_id       = '|'.join(sample_ids),
+	aligner          = '|'.join(['star','bowtie2']),
+	condition        = '|'.join(conditions),
+	condition1       = '|'.join(conditions),
+	condition2       = '|'.join(conditions),
+	named_comparison = '|'.join(config['complex_comparisons'].keys())
 
+#Common Rules
 include: 'rules/assemblies.smk'
 include: 'rules/bam_utils.smk'
 include: 'rules/qc.smk'
 include: 'rules/align_star.smk'
 include: 'rules/align_bowtie2.smk'
+
+#*IP-seq Rules
 include: 'rules/macs2.smk'
 include: 'rules/piranha.smk'
 include: 'rules/pepr.smk'
@@ -108,8 +127,11 @@ include: 'rules/thor.smk'
 include: 'rules/genrich.smk'
 include: 'rules/diffbind.smk'
 #include: 'rules/multigps.smk'
-include: 'rules/sailor.smk'
 include: 'rules/pileups.smk'
+
+#Stamp Rules
+include: 'rules/bullseye.smk'
+include: 'rules/sailor.smk'
 
 rule all:
 	input:
@@ -126,4 +148,6 @@ rule dev:
 
 rule dev2:
 	input:
+		simple_bullseye=[os.path.join(config["stamp_dir"], f'simple_condition_{condition1}_vs_{condition2}.bed') for condition1, condition2 in config["simple_comparisons"]],
+		complex_bullseye=[os.path.join(config["stamp_dir"], f'complex_condition_{name}.bed') for name in config["complex_comparisons"]],
 		qc=rules.multiqc_report.output.report,
