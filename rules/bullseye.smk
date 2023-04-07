@@ -2,12 +2,15 @@ rule bullseye_parse_bam:
 	input: 
 		bam = lambda wildcards: sample_id2bam[wildcards.sample_id],
 		bai = lambda wildcards: sample_id2bam[wildcards.sample_id] + '.bai',
-	output: os.path.join(config["stamp_dir"], '{sample_id}.matrix.gz'),
+	output:
+		matrix = os.path.join(config["stamp_dir"], '{sample_id}.matrix.gz'),
+		tbi    = os.path.join(config["stamp_dir"], '{sample_id}.matrix.gz.tbi'),
 	params:
 		min_coverage = 10,
+		file_prefix = lambda wildcards, output: output['matrix'].replace('.gz','')
 	conda: '../envs/bullseye.yml'
 	threads: 8
-	shell: 'parseBAM.pl --input {input.bam} --output {output} --cpu {threads} --minCoverage {params.min_coverage} --removeDuplicates'
+	shell: 'parseBAM.pl --input {input.bam} --output {params.file_prefix} --cpu {threads} --minCoverage {params.min_coverage} --removeDuplicates'
 
 rule bullseye_generate_genepresd:
 	input:  os.path.join(config["reference_dir"], '{database}', '{assembly}.gtf'),
@@ -48,31 +51,34 @@ rule bullseye_merge_edit_sites_complex:
 	input: lambda wildcards: [ os.path.join(config["stamp_dir"], 'sample_{sample_id}_vs_'+f'{sample_id2matching_ids[wildcards.sample_id][condition]}.bed') for condition in config["complex_comparisons"][wildcards.named_comparison][1] ]
 	output: os.path.join(config["stamp_dir"], 'complex_condition_{named_comparison}_{sample_id}.bed')
 	params:
-		minimum_reps      = 3,
+		minimum_reps      = lambda wildcards: len(config["complex_comparisons"][wildcards.named_comparison][1]),
 		minimum_mutations = 3,
 	conda: '../envs/bullseye.yml'
 	shell:
 		'''
-			summarize_sites.pl --MinRep {params.minimum_reps}      \
-			                   --mut    {params.minimum_mutations} \
-			                   --repOnly                           \
-			                   {input} > {output}
+			perl $(which summarize_sites.pl) --MinRep {params.minimum_reps}      \
+			                                 --mut    {params.minimum_mutations} \
+			                                 --repOnly                           \
+			                                 {input} > {output}
 		'''
 
 rule bullseye_filter_edit_sites_simple:
 	input: lambda wildcards: [os.path.join(config["stamp_dir"], f'sample_{sample_id}_vs_{sample_id2matching_ids[sample_id][wildcards.condition2]}.bed') for sample_id in condition2sample_ids[wildcards.condition1]]
 	output: os.path.join(config["stamp_dir"], 'simple_condition_{condition1}_vs_{condition2}.bed')
 	params:
-		minimum_reps      = 3,
+		minimum_reps      = lambda wildcards: len(condition2sample_ids[wildcards.condition1]),
 		minimum_mutations = 3,
 	conda: '../envs/bullseye.yml'
 	shell:
 		'''
-			summarize_sites.pl --MinRep {params.minimum_reps}      \
-			                   --mut    {params.minimum_mutations} \
-			                   {input} > {output}
+			perl $(which summarize_sites.pl) --MinRep {params.minimum_reps}      \
+			                                 --mut    {params.minimum_mutations} \
+			                                 {input} > {output}
 		'''
 
 use rule bullseye_filter_edit_sites_simple as rule bullseye_filter_edit_sites_complex with:
 	input: lambda wildcards: [ os.path.join(config["stamp_dir"], 'complex_condition_{named_comparison}_'+f'{sample_id}.bed') for sample_id in condition2sample_ids[config["complex_comparisons"][wildcards.named_comparison][0]] ]
 	output: os.path.join(config["stamp_dir"], 'complex_condition_{named_comparison}.bed')
+	params:
+		minimum_reps      = lambda wildcards: len(condition2sample_ids[config["complex_comparisons"][wildcards.named_comparison][0]]),
+		minimum_mutations = 3,
