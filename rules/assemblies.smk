@@ -115,3 +115,11 @@ rule generate_whitelist:
 	output:      os.path.join(config['reference_dir'],'{database}','{assembly}_whitelist.bed'),
 	conda: '../envs/assemblies.yml'
 	shell: 'bedtools complement -i {input.blacklist} -g {input.sizes} > {output}'
+
+rule generate_gene_id2gene_name:
+	output: os.path.join(config["reference_dir"], '{database}', '{assembly}_gene_id2gene_name.tsv')
+	params:
+		gene_id_type = lambda wildcards: 'ensembl' if wildcards.database in ['ensembl', 'ucsc'] else 'ncbi',
+		assembly     = lambda wildcards: wildcards.assembly,
+	conda: '../envs/biocondaR.yml'
+	script: '../scripts/generate_gene_id2gene_name.R'
