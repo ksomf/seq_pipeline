@@ -1,0 +1,11 @@
+name: seq-pipeline-biocondaR
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - r = 4
+  - r-tidyverse
+  - r-biocmanager
+  - bioconductor-genomicranges
+  - bioconductor-Rsamtools
+  - bioconductor-biomart
