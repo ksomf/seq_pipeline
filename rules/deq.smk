@@ -1,6 +1,6 @@
 rule deq_macs2_beds:
 	input:
-		peaks            = lambda wildcards: [ os.path.join(config["peakcalling_dir"], f'{sample_id}_normal_peaks.narrowPeak') for sample_id in chain( condition2sample_ids[wildcards.condition1], condition2sample_ids[wildcards.condition2] ) ],
+		peaks = lambda wildcards: [ os.path.join(config["peakcalling_dir"], f'{sample_id}_normal_peaks.narrowPeak') for sample_id in chain( condition2sample_ids[wildcards.condition1], condition2sample_ids[wildcards.condition2] ) ],
 	output:
 		peaks = os.path.join(config['peakcalling_dir'], 'deq', '{condition1}_vs_{condition2}_combined_peaks.bed'),
 	conda: '../envs/deq.yml'
@@ -65,3 +65,18 @@ rule deq2tsv:
 		res = res[['chrom', 'start', 'end', 'strand', 'name', 'method', 'condition', 'stat', 'stat_type', 'significant' ]]
 		res = res.sort_values('stat')
 		res.to_csv( output.diffbind_peaks, sep='\t', index=False )
+
+rule deq_result_with_gene_names:
+	input:
+		raw_deq         = rule.deq2tesv.output.log_peaks,
+		gene_conversion = os.path.join(config['reference_dir'], config['databaes'], config['assembly'] + '_gene_id2gene_name.tsv')
+	output:
+		raw_deq = rule.deq2tesv.output.log_peaks.replace('.tsv','named.tsv')
+	run:
+		df        = pd.read_csv( input.raw_deq, sep='\t' )
+		gene2name = pd.read_csv( input.gene_conversion, sep='\t' )
+		df = df.merge( gene2name, left_on='main.gene', right_on='gene_id' )
+		df.to_csv( output.raw_deq, sep='\t', index=False )
+
+
+
