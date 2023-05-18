@@ -35,7 +35,7 @@ rule pepr2tsv:
 	input:
 		pepr_peaks = [ os.path.join(config['peakcalling_dir'],'pepr',f'{condition}_vs_{config["control_condition"]}__PePr_chip1_peaks.bed') for condition in config['treatment_conditions'] ],
 	output:
-		diffbind_peaks = os.path.join(config['peakcalling_dir'],'pepr','merged_peaks.tsv'),
+		diffbind_peaks = os.path.join(config['peakcalling_dir'],'pepr','merged_peaks.unnamed.tsv'),
 	params:
 		pepr_conditions = config['treatment_conditions'],
 		pepr_cuttoff = 1e-15,

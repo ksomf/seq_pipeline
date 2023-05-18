@@ -56,7 +56,7 @@ rule thor2tsv:
 	input:
 		thor_peaks = [ os.path.join( config['peakcalling_dir'], 'thor', 'run', f'{condition}_vs_{config["control_condition"]}-diffpeaks.narrowPeak' ) for condition in config['treatment_conditions'] ],
 	output:
-		diffbind_peaks = os.path.join(config['peakcalling_dir'],'thor','merged_peaks.tsv'),
+		diffbind_peaks = os.path.join(config['peakcalling_dir'],'thor','merged_peaks.unnamed.tsv'),
 	params:
 		thor_conditions = config['treatment_conditions'],
 		thor_cuttoff    = 0.01,

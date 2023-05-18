@@ -29,10 +29,11 @@ rule deq_diffbind:
 
 rule deq2tsv:
 	input:
-		deq_peaks  = [ os.path.join(config['peakcalling_dir'],'deq',f'{condition}_vs_{config["control_condition"]}.txt')        for condition in config['treatment_conditions'] ],
-		deq_counts = [ os.path.join(config['peakcalling_dir'],'deq',f'{condition}_vs_{config["control_condition"]}.counts.txt') for condition in config['treatment_conditions'] ],
+		deq_peaks       = [ os.path.join(config['peakcalling_dir'],'deq',f'{condition}_vs_{config["control_condition"]}.txt')        for condition in config['treatment_conditions'] ],
+		deq_counts      = [ os.path.join(config['peakcalling_dir'],'deq',f'{condition}_vs_{config["control_condition"]}.counts.txt') for condition in config['treatment_conditions'] ],
+		gene_conversion = os.path.join(config['reference_dir'], config['database'], config['assembly'] + '_gene_id2gene_name.tsv')
 	output:
-		diffbind_peaks = os.path.join(config['peakcalling_dir'], 'deq', 'merged_peaks.tsv'),
+		diffbind_peaks = os.path.join(config['peakcalling_dir'], 'deq', 'merged_peaks.proto.tsv'),
 		log_peaks      = os.path.join(config['peakcalling_dir'], 'deq', 'all_merged_peaks.tsv'),
 	params:
 		deq_conditions      = config['treatment_conditions'],
@@ -61,22 +62,12 @@ rule deq2tsv:
 			df['stat_type']   = 'min_adj_pvalue'
 			res.append(df)
 		res = pd.concat(res)
+
+		gene2name = pd.read_csv( input.gene_conversion, sep='\t' )
+		res = res.merge( gene2name, left_on='main.gene', right_on='gene_id' )
+		res['gene_id'] = res['main.gene']
+
 		res.to_csv( output.log_peaks, sep='\t', index=False )
-		res = res[['chrom', 'start', 'end', 'strand', 'name', 'method', 'condition', 'stat', 'stat_type', 'significant' ]]
+		res = res[['chrom', 'start', 'end', 'strand', 'name', 'method', 'condition', 'stat', 'stat_type', 'significant', 'annot', 'gene_id', 'gene_name', 'gene_biotype' ]]
 		res = res.sort_values('stat')
 		res.to_csv( output.diffbind_peaks, sep='\t', index=False )
-
-rule deq_result_with_gene_names:
-	input:
-		raw_deq         = rule.deq2tesv.output.log_peaks,
-		gene_conversion = os.path.join(config['reference_dir'], config['databaes'], config['assembly'] + '_gene_id2gene_name.tsv')
-	output:
-		raw_deq = rule.deq2tesv.output.log_peaks.replace('.tsv','named.tsv')
-	run:
-		df        = pd.read_csv( input.raw_deq, sep='\t' )
-		gene2name = pd.read_csv( input.gene_conversion, sep='\t' )
-		df = df.merge( gene2name, left_on='main.gene', right_on='gene_id' )
-		df.to_csv( output.raw_deq, sep='\t', index=False )
-
-
-

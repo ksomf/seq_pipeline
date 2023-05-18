@@ -177,7 +177,7 @@ rule idr2tsv:
 	input:
 		idr_filenames = [ os.path.join(config['peakcalling_dir'],'idr',f'{condition}_{sample1_id}_{sample2_id}_true.tsv') for condition in conditions for sample1_id, sample2_id in combinations(condition2sample_ids[condition], 2) ],
 	output:
-		condition_peaks = os.path.join(config['peakcalling_dir'],'idr','merged_true_peaks.tsv'),
+		condition_peaks = os.path.join(config['peakcalling_dir'],'idr','merged_true_peaks.unnamed.tsv'),
 	params:
 		idr_conditions       = [ condition                          for condition in conditions for sample1_id, sample2_id in combinations(condition2sample_ids[condition], 2) ],
 		idr_elements         = [ '_'.join([sample1_id, sample2_id]) for condition in conditions for sample1_id, sample2_id in combinations(condition2sample_ids[condition], 2) ],

@@ -2,7 +2,7 @@
 
 #TODO(KIM): Use rules. .inputa forms where it makes sense
 #TODO(KIM): Should I reduce all genomics to the standard chromosomes?
-#TODO(KIM): Decide if I should delete diffreps and multigps
+#TODO(KIM): Decide if I should delete unimplemented chip pipelines
 #TODO(KIM): Make the blacklist use the standard chromosome names by using the chrom report to map
 
 import numpy      as np
@@ -25,7 +25,8 @@ defaults = { 'sra_dir'              : '01_sra_download'
            , 'database'             : 'ucsc'
            , 'treatment_conditions' : []
            , 'simple_comparisons'   : []
-           , 'complex_comparisons'  : []
+           , 'complex_comparisons'  : {}
+           , 'manual_peak_files'    : {}
            , 'control_condition'    : None }
 for k, v in defaults.items():
 	if k not in config:
@@ -141,7 +142,7 @@ rule all:
 		genrich_ds=os.path.join(config["peakcalling_dir"],'genrich','d103-467_peaks.narrowPeak'),
 		qc=rules.multiqc_report.output.report,
 
-rule dev:
+rule dev_ripseq:
 	input:
 		pileups=rules.plot_pileups.output.summary_file,
 		qc     =rules.multiqc_report.output.report,

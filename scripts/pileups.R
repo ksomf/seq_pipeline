@@ -1,15 +1,18 @@
 library(GenomicRanges)
 library(Rsamtools)
 library(ggplot2)
-library(ggthemes)
 library(furrr)
 library(rtracklayer)
 library(tidyverse)
+
+theme_set(theme_void())
+options( ggplot2.discrete.colour = ggthemes::scale_colour_tableau() )
 
 LERP <- function(y1, y2, x){y1 + (y2-y1)*x}
 
 condition_peaks <- '04_peakcalling/analysis/condition_peaks.tsv'
 diffbind_peaks  <- '04_peakcalling/analysis/diffbind_peaks.tsv'
+manual_peaks    <- '04_peakcalling/analysis/manual_peaks.tsv'
 bam_files       <- list.files('03_aligned/', full.names=TRUE ) %>% .[str_ends(.,'star_aligned.bam')]
 bam_index_files <- list.files('03_aligned/', full.names=TRUE ) %>% .[str_ends(.,'star_aligned.bam.bai')]
 library_sizes   <- '04_peakcalling/analysis/library_sizes.tsv'
@@ -132,8 +135,15 @@ de_peaks        <- read_tsv(diffbind_peaks, show_col_types=FALSE) %>% mutate(sib
 de_peaks_gr     <- makeGRangesFromDataFrame( de_peaks, keep.extra.columns=TRUE )
 de_search_peaks <- de_peaks
 
+print('Reading Manual Peaks')
+m_peaks         <- read_tsv(manual_peaks, show_col_types=FALSE) %>% mutate(siblings=1) %>% rename(any_of(c(chrom='seqnames')))
+m_peaks_gr      <- makeGRangesFromDataFrame( m_peaks, keep.extra.columns=TRUE )
+
 print('Reading vs Input Peakcaller Results')
 cond_peaks <- read_tsv(condition_peaks, show_col_types=FALSE) %>% rename(any_of(c(chrom='seqnames')))
+print(colnames(de_peaks))
+print(colnames(cond_peaks))
+print(colnames(m_peaks))
 cond_search_peaks <- cond_peaks %>%
 	group_by(method) %>%
 	group_modify(function(df, g){
@@ -158,9 +168,13 @@ search_peaks_rest <- de_search_peaks %>%
 	subset( method != 'deq' ) %>%
 	group_by(method) %>%
 	slice_head( n=10 )
-search_peaks <- rbind( search_peak_deq, search_peaks_rest )
+search_peaks <- rbind( select(search_peak_deq  , any_of(colnames(m_peaks)))
+                     , select(search_peaks_rest, any_of(colnames(m_peaks)))
+                     , m_peaks )
 
-peaks <- rbind( de_peaks, cond_peaks)
+peaks <- rbind( select(de_peaks  , any_of(colnames(m_peaks)))
+              , select(cond_peaks, any_of(colnames(m_peaks)))
+              , m_peaks )
 
 print('Loading simple track tools')
 method_offset <- function(xs){
@@ -333,15 +347,13 @@ tracks_plot <- function( obj ){
 		geom_segment(aes(x  =xmin , xend=xmax, y   =y   , yend=y                                ), data=guides) +
 		geom_rect   (aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, fill=condition, alpha=alpha), data=pileups) #+
 		#geom_line   (aes(x  =(xmin+xmax)/2, y=ymax, group=condition, colour=condition, alpha=alpha), data=pileups)
-	p +
-		scale_colour_tableau() +
-		scale_fill_tableau() +
-		theme_void()
+	p
 }
 
 print('Working out ranges to plot')
 search_width <- 10000
-search_peaks <- makeGRangesFromDataFrame(search_peaks, keep.extra.columns=TRUE)
+search_peaks <- makeGRangesFromDataFrame( search_peaks, keep.extra.columns=TRUE )
+peaks        <- makeGRangesFromDataFrame( peaks       , keep.extra.columns=TRUE )
 data_ranges <- GenomicRanges::reduce( search_peaks + search_width, ignore.strand=TRUE )
 
 print('Plotting ranges')
@@ -359,7 +371,8 @@ for( i in seq_along(data_ranges) ){
 	scan_params     <- ScanBamParam( which=range_plot, what=scanBamWhat() )
 	pileup_params   <- PileupParam( distinguish_nucleotides=FALSE, distinguish_strands=FALSE ) #PileupParam(distinguish_nucleotides=FALSE)
 	
-	range_peaks <- GenomicRanges::pintersect(search_peaks, range_plot, drop.nohit.ranges=TRUE)
+	range_peaks     <- GenomicRanges::pintersect(search_peaks, range_plot, drop.nohit.ranges=TRUE)
+	displayed_peaks <- GenomicRanges::pintersect(peaks, range_plot, drop.nohit.ranges=TRUE)
 	
 	if( length(range_peaks) && nrow(range_gtf) ){
 		sample_range_pileup <- map_dfr(seq_along(bam_files), function(i){
@@ -406,10 +419,11 @@ for( i in seq_along(data_ranges) ){
 			
 			p <- tracks_plot(track)
 			dir.create( output_dir, showWarnings=TRUE, recursive=TRUE )
-			save_name = paste0(output_dir, '/pileup_chr', as.character(seqnames(range_plot)), '.', start(range_plot), '-', end(range_plot), '.pdf')
+			save_name = paste0(output_dir, '/pileup_chr', as.character(seqnames(range_plot)), '.', start(range_plot), '-', end(range_plot), '.svg')
 			save_name = str_replace( save_name, 'chrchr', 'chr' )
 			ggsave(save_name, plot=p, width=24, height=8)
 			print(save_name)
+			as.data.frame(displayed_peaks) %>% write_tsv(str_replace( save_name, '.svg', '.tsv' ))
 			
 			#pmap(list(range_gtf_genes$start, range_gtf_genes$end, ifelse(range_gtf_genes$name=='', range_gtf_genes$parent_gene, range_gtf_genes$name)), function(start, end, name){
 			#  q <- p +

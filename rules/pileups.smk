@@ -1,8 +1,18 @@
+rule annotate_peaks:
+	input:
+		diffbind_peaks  = os.path.join('{path}','{name}.unnamed.tsv'),
+		gtf             = os.path.join(config['reference_dir'], config['database'], config['assembly']+'.gtf'),
+		gene_conversion = os.path.join(config['reference_dir'], config['database'], config['assembly'] + '_gene_id2gene_name.tsv')
+	output:
+		diffbind_peaks = os.path.join('{path}','{name}.tsv')
+	conda: '../envs/deq.yml'
+	script: '../scripts/annotate_peaks.R'
+
 rule join_peakcall_data:
 	input:
-		idr_peaks     = rules.idr2tsv    .output.condition_peaks,
-		genrich_peaks = rules.genrich2tsv.output.condition_peaks,
-		#piranha_peaks = rules.piranha2tsv.output.condition_peaks,
+		idr_peaks     = rules.idr2tsv    .output.condition_peaks.replace('.unnamed.tsv','.tsv'),
+		genrich_peaks = rules.genrich2tsv.output.condition_peaks.replace('.unnamed.tsv','.tsv'),
+		#piranha_peaks = rules.piranha2tsv.output.condition_peaks.replace('.unnamed.tsv','.tsv'),
 	output:
 		condition_peaks = os.path.join(config['peakcalling_dir'],'analysis','condition_peaks.tsv'),
 	run:
@@ -14,10 +24,10 @@ rule join_peakcall_data:
 
 rule join_diffbind_data:
 	input:
-		pepr_peaks     = rules.pepr2tsv.output.diffbind_peaks,
-		thor_peaks     = rules.thor2tsv.output.diffbind_peaks,
+		pepr_peaks     = rules.pepr2tsv.output.diffbind_peaks.replace('.unnamed.tsv','.tsv'),
+		thor_peaks     = rules.thor2tsv.output.diffbind_peaks.replace('.unnamed.tsv','.tsv'),
 		deq_peaks      = rules.deq2tsv .output.diffbind_peaks,
-		#diffbind_peaks = rules.diffbind2tsv.output.diffbind_peaks,
+		#diffbind_peaks = rules.diffbind2tsv.output.diffbind_peaks.replace('.unnamed.tsv','.tsv'),
 	output:
 		diffbind_peaks = os.path.join(config['peakcalling_dir'],'analysis','diffbind_peaks.tsv'),
 	run:
@@ -26,6 +36,29 @@ rule join_diffbind_data:
 		df_deq  = pd.read_csv( input.deq_peaks , sep='\t' )
 		res = pd.concat([ df_pepr, df_thor, df_deq ])
 		res.to_csv( output.diffbind_peaks, sep='\t', index=False )
+
+rule generate_manual_data:
+	output:
+		manual_peaks = os.path.join(config['peakcalling_dir'],'analysis','manual_peaks.tsv')
+	run:
+		#convert to peaks
+		columns = [ 'chrom', 'start', 'end', 'strand', 'name', 'method', 'condition', 'stat', 'stat_type', 'significant' ]
+		res = []
+		for peak_condition, peak_file in config['manual_peak_files'].items():
+			peaks = pd.read_csv( peak_file, sep='\t' )
+			peaks['condition'] = peak_condition
+			res.append( peaks )
+		res                 = pd.concat(res)
+		res                 = res[['chrom', 'start', 'end', 'condition', 'gene_id', 'gene_name']]
+		res['strand']       = '*'
+		res['name']         = [ f'manual_{i}' for i in range(len(res)) ]
+		res['method']       = 'manual'
+		res['stat']         = 0
+		res['stat_type']    = 'manual'
+		res['significant']  = True
+		res['annot']        = 'none (bullseye)'
+		res['gene_biotype'] = 'none (bullseye)'
+		res.to_csv( output.manual_peaks, sep='\t', index=False )
 
 rule get_library_sizes:
 	input:  [ sample_id2bam[sample_id].replace('.bam','.bam2counts.txt') for sample_id in sample_ids ],
@@ -42,6 +75,7 @@ rule plot_pileups:
 	input:
 		condition_peaks = rules.join_peakcall_data.output.condition_peaks,
 		diffbind_peaks  = rules.join_diffbind_data.output.diffbind_peaks ,
+		manual_peaks    = rules.generate_manual_data.output.manual_peaks ,
 		bam_files       = [ sample_id2bam[sample_id]                            for sample_id in sample_ids ],
 		bam_index_files = [ sample_id2bam[sample_id].replace('.bam','.bam.bai') for sample_id in sample_ids ],
 		library_sizes   = rules.get_library_sizes.output,
@@ -54,6 +88,5 @@ rule plot_pileups:
 		control_condition    = config['control_condition'],
 		metadata             = config['metadata'],
 		sample_ids           = sample_ids,
-	retries: 3
 	conda: '../envs/pileups.yml'
 	script: '../scripts/pileups.R'

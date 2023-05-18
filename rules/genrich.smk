@@ -20,7 +20,7 @@ rule genrich2tsv:
 	input:
 		genrich_filenames = [ os.path.join(config['peakcalling_dir'],'genrich',f'{condition}_peaks.narrowPeak') for condition in conditions ],
 	output:
-		condition_peaks = os.path.join(config['peakcalling_dir'],'genrich','merged_peaks.tsv'),
+		condition_peaks = os.path.join(config['peakcalling_dir'],'genrich','merged_peaks.unnamed.tsv'),
 	params:
 		genrich_conditions = conditions,
 		genrich_cuttoff    = 1e-5,
