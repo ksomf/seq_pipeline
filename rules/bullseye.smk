@@ -1,4 +1,4 @@
-rule bullseye_parse_bam:
+ule bullseye_parse_bam:
 	input: 
 		bam = lambda wildcards: sample_id2bam[wildcards.sample_id],
 		bai = lambda wildcards: sample_id2bam[wildcards.sample_id] + '.bai',
@@ -112,3 +112,22 @@ rule bullseye_find_edited_genes_simple:
 use rule bullseye_find_edited_genes_simple as rule bullseye_find_edited_genes_complex with:
 	input:  os.path.join(config["stamp_dir"], 'complex_relaxed_condition_{named_comparison}.tsv'),
 	output: os.path.join(config["stamp_dir"], 'complex_relaxed_condition_{named_comparison}_edited_genes.tsv'),
+
+rule bullseye_pileups:
+	input:
+		simple_bullseye             = [os.path.join(config["stamp_dir"], f'simple_normal_condition_{condition1}_vs_{condition2}.tsv') for condition1, condition2 in config["simple_comparisons"]],
+		complex_gbullseye           = [os.path.join(config["stamp_dir"], f'complex_normal_condition_{name}.tsv') for name in config["complex_comparisons"]],
+		multisite_simple_bullseye   = [os.path.join(config["stamp_dir"], f'simple_relaxed_condition_{condition1}_vs_{condition2}_edited_genes.tsv') for condition1, condition2 in config["simple_comparisons"]],
+		multisite_complex_gbullseye = [os.path.join(config["stamp_dir"], f'complex_relaxed_condition_{name}_edited_genes.tsv') for name in config["complex_comparisons"]],
+		counts                      = [os.path.join(config["stamp_dir"], f'{s}.matrix.gz') for condition in condition2sample_ids for s in conditions2sample_ids[condition] ],
+		gtf                         = os.path.join(config["reference_dir"], f'{config["database"]}', f'{config["assembly"]}.gtf'),
+	output:
+		plot_dir = directory(os.path.join(config["stamp_dir"], 'plots')),
+		flag     =     touch(os.path.join(config["stamp_dir"], 'plots.flag'))
+	params:
+		conditions = [ condition for condition in condition2sample_ids for s in conditions2sample_ids[condition] ],
+		condition_order = config["display_order"]
+		gtf_database = config["database"]
+	conda: '../envs/pileups.yml'
+	script: '../scripts/stamp_plots.R'
+

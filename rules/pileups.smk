@@ -82,7 +82,7 @@ rule plot_pileups:
 		gtf             = os.path.join(config['reference_dir'], config['database'], config['assembly']+'.gtf'),
 	output:
 		plot_dir     = directory(os.path.join(config['peakcalling_dir'],'analysis','plots')),
-		summary_file =           os.path.join(config['peakcalling_dir'],'analysis','summary.txt'),
+		summary_file =     touch(os.path.join(config['peakcalling_dir'],'analysis','summary.txt')),
 	params:
 		treatment_conditions = config['treatment_conditions'],
 		control_condition    = config['control_condition'],
