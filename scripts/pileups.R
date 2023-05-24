@@ -6,7 +6,8 @@ library(rtracklayer)
 library(tidyverse)
 
 theme_set(theme_void())
-options( ggplot2.discrete.colour = ggthemes::scale_colour_tableau() )
+options( ggplot2.discrete.colour = ggthemes::scale_colour_tableau()
+       , ggplot2.discrete.fill   = ggthemes::scale_colour_tableau() )
 
 LERP <- function(y1, y2, x){y1 + (y2-y1)*x}
 
@@ -347,7 +348,7 @@ tracks_plot <- function( obj ){
 		geom_segment(aes(x  =xmin , xend=xmax, y   =y   , yend=y                                ), data=guides) +
 		geom_rect   (aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, fill=condition, alpha=alpha), data=pileups) #+
 		#geom_line   (aes(x  =(xmin+xmax)/2, y=ymax, group=condition, colour=condition, alpha=alpha), data=pileups)
-	p
+	p + ggthemes::scale_fill_tableau() + theme_void()
 }
 
 print('Working out ranges to plot')
@@ -392,7 +393,7 @@ for( i in seq_along(data_ranges) ){
 				mutate(normcount=log1p(count)/max(log1p(count)))
 			
 			track <- tracks_create() 
-			
+
 			range_de_peaks <- GenomicRanges::pintersect(de_peaks_gr, range_plot, drop.nohit.ranges=TRUE) %>% 
 				as.data.frame() 
 			if(nrow(range_de_peaks) != 0) {
@@ -415,6 +416,12 @@ for( i in seq_along(data_ranges) ){
 				if( nrow(pc) > 0 ){
 					track <- tracks_shade_bar( track, pc , group_column='method', direction='up', range=2 )
 				}
+			}
+			
+			range_manual_peaks <- GenomicRanges::pintersect(m_peaks_gr, range_plot, drop.nohit.ranges=TRUE) %>% as.data.frame()
+			if( nrow(range_manual_peaks) != 0 ){
+				print('Adding manual hit')
+				track <- tracks_shade_bar( track, range_manual_peaks, group_column='condition', direction='up', range=-1 )
 			}
 			
 			p <- tracks_plot(track)
