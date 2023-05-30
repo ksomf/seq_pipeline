@@ -121,6 +121,8 @@ rule bullseye_pileups:
 		multisite_complex_gbullseye = [os.path.join(config["stamp_dir"], f'complex_relaxed_condition_{name}_edited_genes.tsv') for name in config["complex_comparisons"]],
 		counts                      = [os.path.join(config["stamp_dir"], f'{s}.matrix.gz') for condition in condition2sample_ids for s in conditions2sample_ids[condition] ],
 		gtf                         = os.path.join(config["reference_dir"], f'{config["database"]}', f'{config["assembly"]}.gtf'),
+		genome                      = os.path.join(config["reference_dir"], f'{config["database"]}', f'{config["assembly"]}.fasta'),
+		genome_fai                  = os.path.join(config["reference_dir"], f'{config["database"]}', f'{config["assembly"]}.fasta.fai'),
 	output:
 		plot_dir = directory(os.path.join(config["stamp_dir"], 'plots')),
 		flag     =     touch(os.path.join(config["stamp_dir"], 'plots.flag'))

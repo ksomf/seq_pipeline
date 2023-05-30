@@ -4,8 +4,8 @@ channels:
   - bioconda
 dependencies:
   - r
-  - r-ggplot2
   - r-ggthemes
+  - r-khroma
   - r-tidyverse
   - r-furrr
   - r-svglite

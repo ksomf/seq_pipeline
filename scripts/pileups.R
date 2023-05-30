@@ -178,16 +178,6 @@ peaks <- rbind( select(de_peaks  , any_of(colnames(m_peaks)))
               , m_peaks )
 
 print('Loading simple track tools')
-method_offset <- function(xs){
-	res <- c()
-	if( length(xs) > 0 ){
-		x2d <- xs %>% 
-			unique() %>% 
-			set_names((seq_along(.)-1)/length(.),.)
-		res <- map_dbl(xs, ~x2d[[.x]])
-}
-res
-}
 
 tracks_create <- function(padding=0.1){
 	list(width=0, tracks=list(), track_guides=c(), padding=padding)
