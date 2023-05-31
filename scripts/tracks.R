@@ -28,7 +28,7 @@ tracks_shade_bar <- function( obj=tracks_create(), df, group_column, direction, 
 	obj
 }
 
-tracks_pileup <- function( obj=tracks_create(), df, condition_column ){
+tracks_pileup_bar <- function( obj=tracks_create(), df, condition_column ){
 	base_y <- -obj$width - 1
 	plot_df <- df %>% 
 		mutate( xmin=pos-0.5, xmax=pos+0.5, ymin=base_y, ymax=base_y+normcount, condition=df[,condition_column], alpha=alpha ) %>% 
@@ -39,27 +39,37 @@ tracks_pileup <- function( obj=tracks_create(), df, condition_column ){
 	obj
 }
 
-tracks_pileup2 <- function( obj=tracks_create(), df, norm=1, axis_label=NA, colour='pileup', prop=tibble(site=0, prop=0, .rows=0), prop_colour='prop' ){
+tracks_pileup_shade <- function( obj=tracks_create(), df, norm=set_names(1, 'condition'), separation_variable='condition', axis_label=NA, colour_is_group=F, colour='pileup', prop=tibble(site=0, prop=0, .rows=0), prop_colour='prop', simplification_digits=3 ){
 	base_y <- -obj$width - 1
 	
+	hsignif <- function(x) signif( x, digits=simplification_digits )
 	# Perform simplification
-	df <- df %>% 
-		select( site, mean, std ) %>% 
-		mutate( mean = mean / norm, std = std / norm )
+	if(!separation_variable %in% colnames(df)){
+		df[,separation_variable] <- colour
+	}
+	if( nrow(df) != 0 ){
+		df <- df %>% 
+			select( any_of(separation_variable), site, min, q1, median, q3, max ) %>% 
+			group_by_at(separation_variable) %>% 
+			group_modify(function(df, g){
+				df %>% mutate(across( any_of(c( 'min', 'q1', 'median', 'q3', 'max' )), ~./norm[[g[[separation_variable]]]] ))
+			})
+	}
 	plot_df <- df %>% 
-		mutate( std=ifelse(is.na(std), -Inf, std)) %>% 
-		mutate( prev_mean=c(NA, head(mean, n=-1))
-		      , next_mean=c(tail(mean, n=-1), NA)
-		      , prev_std =c(NA, head(std , n=-1))
-		      , next_std =c(tail(std , n=-1), NA) ) %>% 
-		mutate( same_std       = (std == prev_std) & (std == next_std)                     # Error shade size doesn't change
-		      , redundant_mean = signif((prev_mean + next_mean) / 2) == signif(mean) ) %>% # Linear relationship
-		mutate( redundant_site = redundant_mean & same_std ) %>% 
+		group_by_at(separation_variable) %>% 
+		arrange(site) %>%
+		mutate( redundant_site = ( (hsignif(c(NA, head(min   , n=-1)) + c(tail(min   , n=-1),NA) / 2) == hsignif(min   ))
+		                         & (hsignif(c(NA, head(q1    , n=-1)) + c(tail(q1    , n=-1),NA) / 2) == hsignif(q1    ))
+		                         & (hsignif(c(NA, head(median, n=-1)) + c(tail(median, n=-1),NA) / 2) == hsignif(median))
+		                         & (hsignif(c(NA, head(q3    , n=-1)) + c(tail(q3    , n=-1),NA) / 2) == hsignif(q3    ))
+		                         & (hsignif(c(NA, head(max   , n=-1)) + c(tail(max   , n=-1),NA) / 2) == hsignif(max   )) ) ) %>% 
 		filter(!redundant_site) %>% 
-		mutate( std=ifelse(std==-Inf, NA, std)) %>% 
-		mutate( y=base_y+mean ) %>% 
-		mutate( x=site, ymin=pmax(base_y, y-2*std), ymax=y+2*std, colour=colour, alpha=ifelse(mean==0 & next_mean==0, 0, 1) ) %>% 
-		select( x, y, ymin, ymax, colour, alpha )
+		mutate( x=site, y=base_y+median, ymin1=base_y+q1, ymax1=base_y+q3, ymin2=base_y+min, ymax2=base_y+max, colour=colour, alpha=ifelse(max==0 & c(tail(max, n=-1),NA)==0, 0, 1) ) %>% 
+		rename( group=separation_variable ) %>% 
+		select( group, x, y, ymin1, ymax1, ymin2, ymax2, colour, alpha )
+	if(colour_is_group){
+		plot_df$colour <- plot_df$group
+	}
 	
 	prop_df <- prop %>% 
 		mutate( colour=prop_colour ) %>% 
@@ -85,11 +95,11 @@ tracks_annotation <- function( obj=tracks_create(), df ){
 	plot_df <- df %>% 
 		subset(type == 'gene') %>% 
 		mutate( tss1_xmin = ifelse( strand=='-', end -   annotation_sep, start                   )
-		       , tss1_xmax = ifelse( strand=='-', end                   , start +   annotation_sep)
-		       , tss2_xmin = ifelse( strand=='-', end - 3*annotation_sep, start                   )
-		       , tss2_xmax = ifelse( strand=='-', end                   , start + 3*annotation_sep)
-		       , width     = end - start
-		       , y_index   = 0 ) %>% 
+		      , tss1_xmax = ifelse( strand=='-', end                   , start +   annotation_sep)
+		      , tss2_xmin = ifelse( strand=='-', end - 3*annotation_sep, start                   )
+		      , tss2_xmax = ifelse( strand=='-', end                   , start + 3*annotation_sep)
+		      , width     = end - start
+		      , y_index   = 0 ) %>% 
 		arrange(desc(width))
 	
 	for( i in 1:nrow(plot_df) ){
@@ -211,13 +221,16 @@ tracks_plot <- function( obj ){
 	}
 	
 	for( pileup in pileups ){
-		label_df <- data.frame( x=xmax, y=pileup$y_top - .1, label=paste0(pileup$norm), colour=pileup$df$colour      %>% unique())
+		label_df <- data.frame( x=xmax, y=pileup$y_top + .1, colour=names(pileup$norm), label=paste0(pileup$norm) ) %>% 
+			arrange(desc(pileup$norm)) %>% 
+			mutate( y = y - .1*1:n() )
 		p <- p + 
-			geom_path(   aes(x=x, y=y, colour=colour, alpha=alpha)             , data=pileup$df ) +
-			geom_ribbon( aes(x=x, ymin=ymin, ymax=ymax, alpha=1/3, fill=colour), data=pileup$df ) +
+			geom_path(   aes(x=x, y=y, colour=colour, alpha=alpha)               , data=pileup$df ) +
+			geom_ribbon( aes(x=x, ymin=ymin1, ymax=ymax1, alpha=1/6, fill=colour), data=pileup$df ) +
+			geom_ribbon( aes(x=x, ymin=ymin2, ymax=ymax2, alpha=1/6, fill=colour), data=pileup$df ) +
 			geom_text(   aes(x=x, y=y, label=label, colour=colour), data=label_df  )
 		if( nrow(pileup$prop_df) != 0 ){
-			prop_df <- data.frame( x=xmin, y=pileup$y_top - .1, label='100%', colour=pileup$prop_df$colour %>% unique())
+			prop_df <- data.frame( x=xmin, y=pileup$y_top, label='100%', colour=pileup$prop_df$colour %>% unique())
 			p <- p +
 				geom_rect( aes(xmin=x-20, xmax=x+20, ymin=ymin, ymax=ymax, fill=colour ), data=pileup$prop_df ) +
 				geom_text( aes(x=x, y=y, label=label, colour=colour), data=prop_df )

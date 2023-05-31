@@ -15,6 +15,7 @@ source('workflow/scripts/tracks.R')
 #read_conditions          <- snakemake@params[['conditions']]
 #condition_order          <- snakemake@params[['condition_order']]
 #output_dir               <- snakemake@output[['plot_dir']]
+#extra_bam_files          <- snakemake@params[['extra_bam_files']]
 
 metadata <- read_tsv('metadata.tsv')
 sample2condition <- metadata %>% 
@@ -32,6 +33,17 @@ read_filenames           <- list.files( '04_stamp/', full.names=F ) %>% .[str_en
 read_conditions          <- read_filenames %>% lapply(function(x) sample2condition[[str_split(x, '\\.')[[1]][[1]]]]) %>% unlist()
 condition_order          <- c( 'FL', 'C-term', 'CTRL' )
 output_dir               <- '04_stamp/plots'
+
+ripseq_location <- '../nandan_mavs_ripseq/'
+extra_bam_files <- read_tsv(paste0(ripseq_location,'metadata.tsv')) %>% 
+	filter(method == 'IP') %>% 
+	nest(.by='condition') %>% 
+	mutate( files = lapply( data, function(df){
+		 list( ip    = paste0(ripseq_location, '/03_aligned/', df$sample_id             , '.star_aligned.bam')
+		     , input = paste0(ripseq_location, '/03_aligned/', df$matching_input_control, '.star_aligned.bam') )
+	} ) ) %>% 
+	select(-data) %>% 
+	deframe()
 
 message('Reading Genome')
 genome <- Rsamtools::FaFile(genome_filename)
@@ -98,24 +110,45 @@ if( gtf_database == 'ucsc' ){
 }
 
 message('Reading Bullseye Data')
-site_reads <- read_files %>% 
-	set_names(read_files) %>% 
-	map_dfr(function(x) read_tsv( gzfile(x), col_names=c('chrom', 'site', 'A', 'T', 'C', 'G', '_', 'N'), show_col_types=F ), .id='file') %>% 
-	left_join( set_names(read_files, read_conditions) %>% enframe( name='condition', value='file'), by='file' )
-
 bullseye_result_files <- c( simple_bullseye_results, complex_bullseye_results, simple_multi_results, complex_multi_results )
-
 bullseye_results <- bullseye_result_files %>% 
 	set_names(bullseye_result_files) %>% 
 	map_dfr( read_tsv, show_col_types=F, .id='file' )
-
 bullseye_genes <- bullseye_results %>% 
 	pull(gene_id) %>% 
 	unique()
 
 display_gtf <- filter( gtf, gene_id %in% bullseye_genes )
-
 gene_list <- unique(display_gtf$gene_id)
+
+sites_of_interest <- display_gtf %>%
+	makeGRangesFromDataFrame() %>% 
+	GenomicRanges::reduce() %>% 
+	as.data.frame() %>% 
+	rename(chrom=seqnames) %>% 
+	group_by(chrom) %>% 
+	group_modify(function(df, g){
+		data.frame(sites=map2( df$start, df$end, ~.x:.y ) %>% unlist())
+	}) %>% 
+	summarise(sites=list(sites)) %>% 
+	deframe()
+
+site_reads <- read_files %>% 
+	set_names(read_files) %>% 
+	map_dfr(function(x){
+		read_tsv( gzfile(x), col_names=c('chrom', 'site', 'A', 'T', 'C', 'G', '_', 'N'), show_col_types=F ) %>% 
+			filter(chrom %in% names(sites_of_interest)) %>% 
+			group_by(chrom) %>% 
+			group_modify(function(df, g){
+				#print(g$chrom)
+				#print(df)
+				#print(sites_of_interest[[g$chrom]])
+				filter(df, site %in% sites_of_interest[[g$chrom]])
+				})
+		}, .id='file') %>% 
+	ungroup() %>% 
+	left_join( set_names(read_files, read_conditions) %>% enframe( name='condition', value='file'), by='file' )
+
 
 gene <- gene_list[[1]]
 for( gene in gene_list ){
@@ -160,26 +193,62 @@ for( gene in gene_list ){
 		ungroup() %>% 
 		arrange(site) %>% 
 		group_by( condition, chrom, site ) %>% 
-		mutate( mean = mean(N), std = sd(N) ) %>% 
-		select( condition, chrom, site, mean, std ) %>% 
+		mutate( min=min(N), max=max(N), median=median(N), q1=quantile(N, .25), q3=quantile(N, .75), mean=mean(N), std=sd(N) ) %>% 
+		select( condition, chrom, site, min, max, median, q1, q3 ) %>% 
 		ungroup()
-	stamp_norm <- ceiling(max(stamp_pileups$mean, stamp_pileups$mean + 2*stamp_pileups$std, na.rm=T))
+	stamp_norm <- c(pileup=ceiling(max(stamp_pileups$max, na.rm=T)))
+	
+	scan_params   <- ScanBamParam( which=gene_gr, what=scanBamWhat() )
+	pileup_params <- PileupParam( distinguish_nucleotides=FALSE, distinguish_strands=FALSE )
+	
+	extra_pileups <- extra_bam_files %>% 
+		enframe( name='condition', value='data' ) %>% 
+		mutate( data=lapply( data, data.frame ) ) %>% 
+		mutate( bams=lapply( data, function(df){
+			df %>% 
+				mutate(across( everything(), function(col) lapply( col, function(f) pileup( f, index=str_replace(f, '.bam', '.bam.bai'), scanBamParam=scan_params, pileupParam=pileup_params ) ) ))
+		}) ) %>% 
+		select(-data) %>% 
+		unnest(bams) %>% 
+		pivot_longer(cols=c('ip', 'input'), names_to='type', values_to='pileup') %>% 
+		mutate( pileup=lapply( pileup, function(df){
+			zero_sites <- setdiff( min_site:max_site, df$pos )
+			df %>% 
+				select( -seqnames, -which_label ) %>% 
+				rename( site='pos', N='count' ) %>% 
+				rbind(data.frame( site=zero_sites, N=0 )) %>% 
+				filter(between( site, min_site, max_site ))
+		})) %>% 
+		unnest(pileup) %>% 
+		group_by( condition, type, site ) %>% 
+		summarise( min=min(N), max=max(N), median=median(N), q1=quantile(N, .25), q3=quantile(N, .75), mean=mean(N), std=sd(N), .groups='drop' )
+	extra_norm <-  extra_pileups %>% 
+		group_by(type) %>% 
+		summarise(norm=ceiling(max(max, na.rm=T))) %>% 
+		deframe()
 	
 	source('workflow/scripts/tracks.R')
 	colour_scheme1 <- khroma::colour('muted')(9)
-	colour_map <- c(pileup=colour_scheme1[[2]], prop=colour_scheme1[[1]])
-	track <- tracks_create() %>% 
-		tracks_annotation(gene_gtf) 
+	colour_map <- c(pileup=colour_scheme1[[2]], prop=colour_scheme1[[1]], input=colour_scheme1[[3]], ip=colour_scheme1[[4]])
+	track <- tracks_create()
+	
+	for( condition_j in unique(extra_pileups$condition) ){
+		sites_condition_j <- filter( extra_pileups, condition==condition_j )
+		track <- tracks_pileup_shade( track, sites_condition_j, separation_variable='type', norm=extra_norm, colour_is_group=T, axis_label=condition_j)
+	}
+	
+	track <- tracks_annotation( track, gene_gtf ) 
 	for( condition_i in condition_order ){
-		sites_condition_1 <- filter(stamp_pileups, condition==condition_i)
-		edits_condition_1 <- filter(edit_sites   , condition==condition_i) %>% select(site, prop)
-		track <- tracks_pileup2( track, sites_condition_1, norm=stamp_norm, prop=edits_condition_1, axis_label=condition_i )
+		sites_condition_i <- filter(stamp_pileups, condition==condition_i)
+		edits_condition_i <- filter(edit_sites   , condition==condition_i) %>% select(site, prop)
+		track <- tracks_pileup_shade( track, sites_condition_i, separation_variable='pileup', norm=stamp_norm, prop=edits_condition_i, axis_label=condition_i )
 	}	
 	p <- tracks_plot(track)
 	p <- p + 
 		scale_fill_manual  (values=colour_map) +
 		scale_colour_manual(values=colour_map)
-	
+	p
+		
 	gene_label <- ifelse(is.null(gene_gtf$label), gene_gtf$gene_id, gene_gtf$label)[[1]]
 	save_name <- paste0( output_dir, '/', gene_chrom, '.', gene_min_site, '-', gene_max_site, '_', gene_label, '.svg' )
 	dir.create( output_dir, showWarnings=FALSE, recursive=TRUE )
