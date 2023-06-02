@@ -4,46 +4,45 @@ library(tidyverse)
 
 source('workflow/scripts/tracks.R')
 
-#simple_bullseye_results  <- snakemake@input[['simple_bullseye']]
-#complex_bullseye_results <- snakemake@input[['complex_gbullseye']]
-#simple_multi_results     <- snakemake@input[['multi_simple_bullseye']]
-#complex_multi_results    <- snakemake@input[['multi_complex_gbullseye']]
-#genome_filename          <- snakemake@input[['genome']]
-#gtf_filename             <- snakemake@input[['gtf']]
-#gtf_database             <- snakemake@params[['gtf_database']]
-#read_files               <- snakemake@input[['bams']]
-#read_conditions          <- snakemake@params[['conditions']]
-#condition_order          <- snakemake@params[['condition_order']]
-#output_dir               <- snakemake@output[['plot_dir']]
-#extra_bam_files          <- snakemake@params[['extra_bam_files']]
+simple_bullseye_results  <- snakemake@input[['simple_bullseye']]
+complex_bullseye_results <- snakemake@input[['complex_bullseye']]
+simple_multi_results     <- snakemake@input[['multi_simple_bullseye']]
+complex_multi_results    <- snakemake@input[['multi_complex_bullseye']]
+genome_filename          <- snakemake@input[['genome']]
+gtf_filename             <- snakemake@input[['gtf']]
+gtf_database             <- snakemake@params[['gtf_database']]
+read_files               <- snakemake@input[['counts']]
+read_conditions          <- snakemake@params[['conditions']]
+condition_order          <- snakemake@params[['condition_order']]
+output_dir               <- snakemake@output[['plot_dir']]
+extra_bam_files          <- snakemake@params[['extra_bam_files']]
 
-metadata <- read_tsv('metadata.tsv')
-sample2condition <- metadata %>% 
-	select( sample_id, condition ) %>% 
-	deframe()
-simple_bullseye_results  <- list.files( '04_stamp/', full.names=T ) %>% .[str_starts( ., '04_stamp//simple_normal' )  ]  %>% .[str_ends( ., '.tsv' )] %>% .[str_ends( ., 'edited_genes.tsv', negate=T )]
-complex_bullseye_results <- list.files( '04_stamp/', full.names=T ) %>% .[str_starts( ., '04_stamp//complex_normal' ) ]  %>% .[str_ends( ., '.tsv' )] %>% .[str_ends( ., 'edited_genes.tsv', negate=T )]
-simple_multi_results     <- list.files( '04_stamp/', full.names=T ) %>% .[str_starts( ., '04_stamp//simple_relaxed' )  ] %>% .[str_ends( ., '.tsv' )] %>% .[str_ends( ., 'edited_genes.tsv', negate=F )] 
-complex_multi_results    <- list.files( '04_stamp/', full.names=T ) %>% .[str_starts( ., '04_stamp//complex_relaxed' ) ] %>% .[str_ends( ., '.tsv' )] %>% .[str_ends( ., 'edited_genes.tsv', negate=F )]
-genome_filename          <- '../reference/ucsc/hg38.fasta'
-gtf_filename             <- '../reference/ucsc/hg38.gtf'
-gtf_database             <- 'ucsc'
-read_files               <- list.files( '04_stamp/', full.names=T ) %>% .[str_ends( ., '.matrix.gz' )]
-read_filenames           <- list.files( '04_stamp/', full.names=F ) %>% .[str_ends( ., '.matrix.gz' )]
-read_conditions          <- read_filenames %>% lapply(function(x) sample2condition[[str_split(x, '\\.')[[1]][[1]]]]) %>% unlist()
-condition_order          <- c( 'FL', 'C-term', 'CTRL' )
-output_dir               <- '04_stamp/plots'
-
-ripseq_location <- '../nandan_mavs_ripseq/'
-extra_bam_files <- read_tsv(paste0(ripseq_location,'metadata.tsv')) %>% 
-	filter(method == 'IP') %>% 
-	nest(.by='condition') %>% 
-	mutate( files = lapply( data, function(df){
-		 list( ip    = paste0(ripseq_location, '/03_aligned/', df$sample_id             , '.star_aligned.bam')
-		     , input = paste0(ripseq_location, '/03_aligned/', df$matching_input_control, '.star_aligned.bam') )
-	} ) ) %>% 
-	select(-data) %>% 
-	deframe()
+# metadata <- read_tsv('metadata.tsv')
+# sample2condition <- metadata %>% 
+# 	select( sample_id, condition ) %>% 
+# 	deframe()
+# simple_bullseye_results  <- list.files( '04_stamp/', full.names=T ) %>% .[str_starts( ., '04_stamp//simple_normal' )  ]  %>% .[str_ends( ., '.tsv' )] %>% .[str_ends( ., 'edited_genes.tsv', negate=T )]
+# complex_bullseye_results <- list.files( '04_stamp/', full.names=T ) %>% .[str_starts( ., '04_stamp//complex_normal' ) ]  %>% .[str_ends( ., '.tsv' )] %>% .[str_ends( ., 'edited_genes.tsv', negate=T )]
+# simple_multi_results     <- list.files( '04_stamp/', full.names=T ) %>% .[str_starts( ., '04_stamp//simple_relaxed' )  ] %>% .[str_ends( ., '.tsv' )] %>% .[str_ends( ., 'edited_genes.tsv', negate=F )] 
+# complex_multi_results    <- list.files( '04_stamp/', full.names=T ) %>% .[str_starts( ., '04_stamp//complex_relaxed' ) ] %>% .[str_ends( ., '.tsv' )] %>% .[str_ends( ., 'edited_genes.tsv', negate=F )]
+# genome_filename          <- '../reference/ucsc/hg38.fasta'
+# gtf_filename             <- '../reference/ucsc/hg38.gtf'
+# gtf_database             <- 'ucsc'
+# read_files               <- list.files( '04_stamp/', full.names=T ) %>% .[str_ends( ., '.matrix.gz' )]
+# read_filenames           <- list.files( '04_stamp/', full.names=F ) %>% .[str_ends( ., '.matrix.gz' )]
+# read_conditions          <- read_filenames %>% lapply(function(x) sample2condition[[str_split(x, '\\.')[[1]][[1]]]]) %>% unlist()
+# condition_order          <- c( 'FL', 'C-term', 'CTRL' )
+# output_dir               <- '04_stamp/plots'
+# ripseq_location <- '../nandan_mavs_ripseq/'
+# extra_bam_files <- read_tsv(paste0(ripseq_location,'metadata.tsv')) %>% 
+# 	filter(method == 'IP') %>% 
+# 	nest(.by='condition') %>% 
+# 	mutate( files = lapply( data, function(df){
+# 		 list( ip    = paste0(ripseq_location, '/03_aligned/', df$sample_id             , '.star_aligned.bam')
+# 		     , input = paste0(ripseq_location, '/03_aligned/', df$matching_input_control, '.star_aligned.bam') )
+# 	} ) ) %>% 
+# 	select(-data) %>% 
+# 	deframe()
 
 message('Reading Genome')
 genome <- Rsamtools::FaFile(genome_filename)

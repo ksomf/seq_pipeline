@@ -6,8 +6,6 @@ library(rtracklayer)
 library(tidyverse)
 
 theme_set(theme_void())
-options( ggplot2.discrete.colour = ggthemes::scale_colour_tableau()
-       , ggplot2.discrete.fill   = ggthemes::scale_colour_tableau() )
 
 LERP <- function(y1, y2, x){y1 + (y2-y1)*x}
 
@@ -338,7 +336,7 @@ tracks_plot <- function( obj ){
 		geom_segment(aes(x  =xmin , xend=xmax, y   =y   , yend=y                                ), data=guides) +
 		geom_rect   (aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, fill=condition, alpha=alpha), data=pileups) #+
 		#geom_line   (aes(x  =(xmin+xmax)/2, y=ymax, group=condition, colour=condition, alpha=alpha), data=pileups)
-	p + ggthemes::scale_fill_tableau() + theme_void()
+	p + khroma::scale_fill_muted() + theme_void()
 }
 
 print('Working out ranges to plot')

@@ -39,7 +39,7 @@ tracks_pileup_bar <- function( obj=tracks_create(), df, condition_column ){
 	obj
 }
 
-tracks_pileup_shade <- function( obj=tracks_create(), df, norm=set_names(1, 'condition'), separation_variable='condition', axis_label=NA, colour_is_group=F, colour='pileup', prop=tibble(site=0, prop=0, .rows=0), prop_colour='prop', simplification_digits=3 ){
+tracks_pileup_shade <- function( obj=tracks_create(), df, norm=set_names(1, 'condition'), separation_variable='condition', axis_label=NA, colour_is_group=F, colour='pileup', prop=tibble(site=0, prop=0, .rows=0), prop_colour='prop', simplification_digits=2 ){
 	base_y <- -obj$width - 1
 	
 	hsignif <- function(x) signif( x, digits=simplification_digits )
@@ -58,11 +58,11 @@ tracks_pileup_shade <- function( obj=tracks_create(), df, norm=set_names(1, 'con
 	plot_df <- df %>% 
 		group_by_at(separation_variable) %>% 
 		arrange(site) %>%
-		mutate( redundant_site = ( (hsignif(c(NA, head(min   , n=-1)) + c(tail(min   , n=-1),NA) / 2) == hsignif(min   ))
-		                         & (hsignif(c(NA, head(q1    , n=-1)) + c(tail(q1    , n=-1),NA) / 2) == hsignif(q1    ))
-		                         & (hsignif(c(NA, head(median, n=-1)) + c(tail(median, n=-1),NA) / 2) == hsignif(median))
-		                         & (hsignif(c(NA, head(q3    , n=-1)) + c(tail(q3    , n=-1),NA) / 2) == hsignif(q3    ))
-		                         & (hsignif(c(NA, head(max   , n=-1)) + c(tail(max   , n=-1),NA) / 2) == hsignif(max   )) ) ) %>% 
+		mutate(redundant_site = ( (hsignif(c(NA, head(min   , n=-1)) + c(tail(min   , n=-1),NA) / 2) == hsignif(min   ))
+		                        & (hsignif(c(NA, head(q1    , n=-1)) + c(tail(q1    , n=-1),NA) / 2) == hsignif(q1    ))
+		                        & (hsignif(c(NA, head(median, n=-1)) + c(tail(median, n=-1),NA) / 2) == hsignif(median))
+		                        & (hsignif(c(NA, head(q3    , n=-1)) + c(tail(q3    , n=-1),NA) / 2) == hsignif(q3    ))
+		                        & (hsignif(c(NA, head(max   , n=-1)) + c(tail(max   , n=-1),NA) / 2) == hsignif(max   )) )) %>% 
 		filter(!redundant_site) %>% 
 		mutate( x=site, y=base_y+median, ymin1=base_y+q1, ymax1=base_y+q3, ymin2=base_y+min, ymax2=base_y+max, colour=colour, alpha=ifelse(max==0 & c(tail(max, n=-1),NA)==0, 0, 1) ) %>% 
 		rename( group=separation_variable ) %>% 

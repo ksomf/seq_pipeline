@@ -147,10 +147,11 @@ rule dev_ripseq:
 		pileups=rules.plot_pileups.output.summary_file,
 		qc     =rules.multiqc_report.output.report,
 
-rule dev2:
+rule dev_stamp:
 	input:
 		simple_bullseye=[os.path.join(config["stamp_dir"], f'simple_normal_condition_{condition1}_vs_{condition2}.tsv') for condition1, condition2 in config["simple_comparisons"]],
 		complex_bullseye=[os.path.join(config["stamp_dir"], f'complex_normal_condition_{name}.tsv') for name in config["complex_comparisons"]],
 		qc=rules.multiqc_report.output.report,
 		simple_gbullseye=[os.path.join(config["stamp_dir"], f'simple_relaxed_condition_{condition1}_vs_{condition2}_edited_genes.tsv') for condition1, condition2 in config["simple_comparisons"]],
 		complex_gbullseye=[os.path.join(config["stamp_dir"], f'complex_relaxed_condition_{name}_edited_genes.tsv') for name in config["complex_comparisons"]],
+		plots=os.path.join(config["stamp_dir"], 'plots.flag'),
