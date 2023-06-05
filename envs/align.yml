@@ -1,0 +1,9 @@
+name: seq-pipeline-align
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3
+  - samtools
+  - subread
+

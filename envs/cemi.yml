@@ -1,0 +1,11 @@
+name: seq-pipeline-cemi
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - r
+  - r-tidyverse
+  - r-furrr
+  - r-svglite
+  - bioconductor-cemitool
+

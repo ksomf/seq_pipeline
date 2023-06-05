@@ -43,12 +43,11 @@ sample_readlist = []
 sample_id2reads = {}
 sample_id2bam   = { s:os.path.join(config['align_dir'], f'{s}.{config["aligner"]}_aligned.bam') for s in sample_ids }
 if need_to_align:
-	sample_readlist = list(chain(metadata['R1'],metadata['R2']))
+	sample_readlist = list(map(lambda s: s, chain(metadata['R1'],metadata['R2'])))
 	sample_id2reads = dict(zip(metadata['sample_id'],zip(metadata['R1'],metadata['R2'])))
 else:
 	sample_id2bam   = dict(zip(metadata['sample_id'],metadata['bam']))
 
-sample_id2control_id = dict()
 ip_sample_id2input_sample_id = dict()
 metadata_ip_only    = []
 metadata_input_only = []
@@ -92,6 +91,9 @@ elif config['pipeline'] == 'stamp':
 	print(config['simple_comparisons'])
 	print('Complex Comparisons')
 	print(config['complex_comparisons'])
+elif config['pipeline'] == 'cemi':
+	conditions = list(set(metadata['condition']))
+
 
 multiqc_inputs = []
 #generate multiqc files
@@ -116,6 +118,7 @@ wildcard_constraints:
 include: 'rules/assemblies.smk'
 include: 'rules/bam_utils.smk'
 include: 'rules/qc.smk'
+include: 'rules/align.smk'
 include: 'rules/align_star.smk'
 include: 'rules/align_bowtie2.smk'
 
@@ -133,6 +136,9 @@ include: 'rules/pileups.smk'
 #Stamp Rules
 include: 'rules/bullseye.smk'
 include: 'rules/sailor.smk'
+
+#Cemi Rules
+include: 'rules/cemi.smk'
 
 rule all:
 	input:
@@ -155,3 +161,8 @@ rule dev_stamp:
 		simple_gbullseye=[os.path.join(config["stamp_dir"], f'simple_relaxed_condition_{condition1}_vs_{condition2}_edited_genes.tsv') for condition1, condition2 in config["simple_comparisons"]],
 		complex_gbullseye=[os.path.join(config["stamp_dir"], f'complex_relaxed_condition_{name}_edited_genes.tsv') for name in config["complex_comparisons"]],
 		plots=os.path.join(config["stamp_dir"], 'plots.flag'),
+
+rule dev_cemi:
+	input:
+		qc=rules.multiqc_report.output.report,
+		counts=rules.count_matrix.output

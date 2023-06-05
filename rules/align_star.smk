@@ -77,7 +77,8 @@ rule star_align_pair_end:
 		index_folder=lambda wildcards, input: os.path.dirname(input['index'][0]),
 		output_prefix=lambda wildcards, output: output['align_chrom'].replace('Aligned.out.bam',''),
 		output_path=lambda wildcards, output: os.path.dirname(output['align_chrom']),
-		overhang=config['readlength'] - 1
+		fastq_safe=lambda wildcards, input: [ '"'+s+'"' for s in input['fastq'] ],
+		overhang=config['readlength'] - 1,
 	threads: 8
 	conda: '../envs/align_star.yml'
 	shell:
@@ -87,7 +88,7 @@ rule star_align_pair_end:
 			STAR --runThreadN        {threads}              \
 			     --genomeDir         {params.index_folder}  \
 			     --genomeLoad        LoadAndRemove          \
-			     --readFilesIn       {input.fastq}          \
+			     --readFilesIn       {params.fastq_safe}    \
 			     --readFilesCommand  zcat                   \
 			     --quantMode         TranscriptomeSAM       \
 			     --outFileNamePrefix {params.output_prefix} \

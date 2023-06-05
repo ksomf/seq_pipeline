@@ -1,19 +1,31 @@
 import os
 
 assembly2params = {
-	'hg38': { 'species'        : 'homo_sapiens'
-	        , 'ensembl'  : { 'fasta' : 'https://ftp.ensembl.org/pub/release-109/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz' #According to https://www.biostars.org/p/342482/ is fine
-	                      #, 'gff'   : 'https://ftp.ensembl.org/pub/release-109/gff3/homo_sapiens/Homo_sapiens.GRCh38.109.gff3.gz'
-	                       , 'gtf'   : 'https://ftp.ensembl.org/pub/release-109/gtf/homo_sapiens/Homo_sapiens.GRCh38.109.gtf.gz'                     }
-	        , 'ncbi'     : { 'fasta' : 'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz'
-	                      #, 'gff'   : 'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_full_analysis_set.refseq_annotation.gff.gz'
-	                       , 'gtf'   : 'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_full_analysis_set.refseq_annotation.gtf.gz' }
-	        , 'ucsc'     : { 'fasta' : 'https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/latest/hg38.fa.masked.gz'
-	                       , 'gtf'   : 'https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/genes/hg38.ensGene.gtf.gz' }
-	        , 'chip_blacklist' : 'http://mitra.stanford.edu/kundaje/akundaje/release/blacklists/hg38-human/hg38.blacklist.bed.gz'
-	        , 'tss'            : 'https://www.encodeproject.org/files/ENCFF493CCB/@@download/ENCFF493CCB.bed.gz'
-	        , 'promoters'      : 'https://www.encodeproject.org/files/ENCFF140XLU/@@download/ENCFF140XLU.bed.gz'
-	        , 'enhancers'      : 'https://www.encodeproject.org/files/ENCFF212UAV/@@download/ENCFF212UAV.bed.gz' }
+   'hg38': { 'species'  : 'homo_sapiens'
+           , 'ensembl'  : { 'fasta' : 'https://ftp.ensembl.org/pub/release-109/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz' #According to https://www.biostars.org/p/342482/ is fine
+                         #, 'gff'   : 'https://ftp.ensembl.org/pub/release-109/gff3/homo_sapiens/Homo_sapiens.GRCh38.109.gff3.gz'
+                          , 'gtf'   : 'https://ftp.ensembl.org/pub/release-109/gtf/homo_sapiens/Homo_sapiens.GRCh38.109.gtf.gz'                     }
+           , 'ncbi'     : { 'fasta' : 'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz'
+                         #, 'gff'   : 'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_full_analysis_set.refseq_annotation.gff.gz'
+                          , 'gtf'   : 'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_full_analysis_set.refseq_annotation.gtf.gz' }
+           , 'ucsc'     : { 'fasta' : 'https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/latest/hg38.fa.masked.gz'
+                          , 'gtf'   : 'https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/genes/hg38.ensGene.gtf.gz' }
+           , 'chip_blacklist' : 'http://mitra.stanford.edu/kundaje/akundaje/release/blacklists/hg38-human/hg38.blacklist.bed.gz'
+           , 'tss'            : 'https://www.encodeproject.org/files/ENCFF493CCB/@@download/ENCFF493CCB.bed.gz'
+           , 'promoters'      : 'https://www.encodeproject.org/files/ENCFF140XLU/@@download/ENCFF140XLU.bed.gz'
+           , 'enhancers'      : 'https://www.encodeproject.org/files/ENCFF212UAV/@@download/ENCFF212UAV.bed.gz' }
+,  'mm10': { 'species'  : 'mus_musculus'
+           , 'ucsc'     : { 'fasta' : 'https://hgdownload.soe.ucsc.edu/goldenPath/mm10/bigZips/mm10.fa.masked.gz'
+                          , 'gtf'   : 'https://hgdownload.soe.ucsc.edu/goldenPath/mm10/bigZips/genes/mm10.ensGene.gtf.gz' }
+           , 'chip_blacklist' : 'https://mitra.stanford.edu/kundaje/akundaje/release/blacklists/mm10-mouse/mm10.blacklist.bed.gz' }
+,  'mm39': { 'species'  : 'mus_musculus'
+           , 'ensembl'  : { 'fasta' : 'https://ftp.ensembl.org/pub/release-109/fasta/mus_musculus/dna/Mus_musculus.GRCm39.dna.primary_assembly.fa.gz' #According to https://www.biostars.org/p/342482/ is fine
+                          , 'gtf'   : 'https://ftp.ensembl.org/pub/release-109/gtf/mus_musculus/Mus_musculus.GRCm39.109.gtf.gz'                      }
+           , 'ncbi'     : { 'fasta' : 'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/635/GCF_000001635.27_GRCm39/GCF_000001635.27_GRCm39_genomic.fna.gz'
+                          , 'gtf'   : 'https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/635/GCF_000001635.27_GRCm39/GCF_000001635.27_GRCm39_genomic.gff.gz' }
+           , 'ucsc'     : { 'fasta' : 'https://hgdownload.soe.ucsc.edu/goldenPath/mm39/bigZips/mm39.fa.masked.gz'
+                          , 'gtf'   : 'https://hgdownload.soe.ucsc.edu/goldenPath/mm39/bigZips/genes/mm39.ensGene.gtf.gz' }
+           , 'chip_blacklist' : 'none' }
 }
 
 wildcard_constraints:
