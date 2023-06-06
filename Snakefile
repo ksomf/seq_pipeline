@@ -33,6 +33,7 @@ for k, v in defaults.items():
 		config[k] = v
 need_to_download = config['metadata_files'] == 'srr'
 need_to_align    = need_to_download | (config['metadata_files'] == 'fastq')
+need_to_count    = config['pipeline'] == 'cemi'
 need_to_peakcall = config['pipeline'] == 'ripseq'
 need_to_stamp    = config['pipeline'] == 'stamp'
 
@@ -92,6 +93,7 @@ elif config['pipeline'] == 'stamp':
 	print('Complex Comparisons')
 	print(config['complex_comparisons'])
 elif config['pipeline'] == 'cemi':
+	config['use_whitelist'] = False
 	conditions = list(set(metadata['condition']))
 
 
@@ -103,6 +105,8 @@ if need_to_align:
 		multiqc_inputs += [ os.path.join(config['align_dir'], f'{sample_id}.star_aligned.unsorted.Log.final.out') for sample_id in sample_ids ]
 if need_to_peakcall:
 	multiqc_inputs += [ os.path.join(config["peakcalling_dir"], f'{sample_id}_full_peaks.xls') for sample_id in sample_ids_ip ]
+if need_to_count:
+	multiqc_inputs += [ os.path.join( config['align_dir'], 'counts.tsv.summary' ) ]
 
 wildcard_constraints:
 	sample_id        = '|'.join(sample_ids),

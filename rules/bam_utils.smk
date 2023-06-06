@@ -30,23 +30,32 @@ rule index_bam:
 wildcard_constraints:
 	align_type='|'.join(['aligned', 'aligned.transcriptome']),
 
+def should_use_whitelist( w ):
+	if not config['use_whitelist']:
+		return 'no'
+	elif w.align_type == 'aligned':
+		return 'yes'
+	elif w.align_type == 'aligned.transcriptome':
+		return 'no'
+
 rule filter_bam:
 	input:
 		sorted_file=multiext(os.path.join(config['align_dir'], '{sample_id}.{aligner}_{align_type}.unfiltered'), '.bam', '.bam.bai'),
-		whitelist=os.path.join(config['reference_dir'],config['database'],f'{config["assembly"]}_whitelist.bed')
+		whitelist=lambda w: os.path.join(config['reference_dir'],config['database'],f'{config["assembly"]}_whitelist.bed') if should_use_whitelist(w) == "yes" else [],
 	output:
 		filtered_file=os.path.join(config['align_dir'], '{sample_id}.{aligner}_{align_type}.bam'),
 	params:
 		phred_quality_cuttoff=30,
 		pass_flag=create_align_flag(['read_mapped_as_part_of_pair']),
-		fail_flag=create_align_flag(['read_is_unmapped', 'mate_is_unmapped', 'not_primary_alignment', 'read_fails_platform_or_vendor_checks', 'read_is_pcr_or_optical_duplicate'])
+		fail_flag=create_align_flag(['read_is_unmapped', 'mate_is_unmapped', 'not_primary_alignment', 'read_fails_platform_or_vendor_checks', 'read_is_pcr_or_optical_duplicate']),
+		whitelist=lambda wildcards: should_use_whitelist( wildcards ),
 	threads: 8
 	conda: '../envs/samtools.yml'
 	shell:
 		'''
-			if [[ "{wildcards.align_type}" == "aligned" ]]; then
+			if [[ "{params.whitelist}" == "yes" ]]; then
 				samtools view -@ {threads} -q {params.phred_quality_cuttoff} -F {params.fail_flag} -f {params.pass_flag} -L {input.whitelist} -o {output} {input.sorted_file[0]}
-			elif [[ "{wildcards.align_type}" == "aligned.transcriptome" ]]; then
+			elif [[ "{params.whitelist}" == "no" ]]; then
 				samtools view -@ {threads} -q {params.phred_quality_cuttoff} -F {params.fail_flag} -f {params.pass_flag}                      -o {output} {input.sorted_file[0]}
 			fi
 		'''
