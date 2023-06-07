@@ -106,7 +106,7 @@ if need_to_align:
 if need_to_peakcall:
 	multiqc_inputs += [ os.path.join(config["peakcalling_dir"], f'{sample_id}_full_peaks.xls') for sample_id in sample_ids_ip ]
 if need_to_count:
-	multiqc_inputs += [ os.path.join( config['align_dir'], 'counts.tsv.summary' ) ]
+	multiqc_inputs += [ os.path.join( config['align_dir'], 'counts.raw_feature_counts.tsv.summary' ) ]
 
 wildcard_constraints:
 	sample_id        = '|'.join(sample_ids),
@@ -169,4 +169,4 @@ rule dev_stamp:
 rule dev_cemi:
 	input:
 		qc=rules.multiqc_report.output.report,
-		counts=rules.count_matrix.output
+		counts=rules.count_matrix.output,
