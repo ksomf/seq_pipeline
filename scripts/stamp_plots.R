@@ -17,32 +17,32 @@ condition_order          <- snakemake@params[['condition_order']]
 output_dir               <- snakemake@output[['plot_dir']]
 extra_bam_files          <- snakemake@params[['extra_bam_files']]
 
-# metadata <- read_tsv('metadata.tsv')
-# sample2condition <- metadata %>% 
-# 	select( sample_id, condition ) %>% 
-# 	deframe()
-# simple_bullseye_results  <- list.files( '04_stamp/', full.names=T ) %>% .[str_starts( ., '04_stamp//simple_normal' )  ]  %>% .[str_ends( ., '.tsv' )] %>% .[str_ends( ., 'edited_genes.tsv', negate=T )]
-# complex_bullseye_results <- list.files( '04_stamp/', full.names=T ) %>% .[str_starts( ., '04_stamp//complex_normal' ) ]  %>% .[str_ends( ., '.tsv' )] %>% .[str_ends( ., 'edited_genes.tsv', negate=T )]
-# simple_multi_results     <- list.files( '04_stamp/', full.names=T ) %>% .[str_starts( ., '04_stamp//simple_relaxed' )  ] %>% .[str_ends( ., '.tsv' )] %>% .[str_ends( ., 'edited_genes.tsv', negate=F )] 
-# complex_multi_results    <- list.files( '04_stamp/', full.names=T ) %>% .[str_starts( ., '04_stamp//complex_relaxed' ) ] %>% .[str_ends( ., '.tsv' )] %>% .[str_ends( ., 'edited_genes.tsv', negate=F )]
-# genome_filename          <- '../reference/ucsc/hg38.fasta'
-# gtf_filename             <- '../reference/ucsc/hg38.gtf'
-# gtf_database             <- 'ucsc'
-# read_files               <- list.files( '04_stamp/', full.names=T ) %>% .[str_ends( ., '.matrix.gz' )]
-# read_filenames           <- list.files( '04_stamp/', full.names=F ) %>% .[str_ends( ., '.matrix.gz' )]
-# read_conditions          <- read_filenames %>% lapply(function(x) sample2condition[[str_split(x, '\\.')[[1]][[1]]]]) %>% unlist()
-# condition_order          <- c( 'FL', 'C-term', 'CTRL' )
-# output_dir               <- '04_stamp/plots'
-# ripseq_location <- '../nandan_mavs_ripseq/'
-# extra_bam_files <- read_tsv(paste0(ripseq_location,'metadata.tsv')) %>% 
-# 	filter(method == 'IP') %>% 
-# 	nest(.by='condition') %>% 
-# 	mutate( files = lapply( data, function(df){
-# 		 list( ip    = paste0(ripseq_location, '/03_aligned/', df$sample_id             , '.star_aligned.bam')
-# 		     , input = paste0(ripseq_location, '/03_aligned/', df$matching_input_control, '.star_aligned.bam') )
-# 	} ) ) %>% 
-# 	select(-data) %>% 
-# 	deframe()
+#metadata <- read_tsv('metadata.tsv')
+#sample2condition <- metadata %>% 
+#	select( sample_id, condition ) %>% 
+#	deframe()
+#simple_bullseye_results  <- list.files( '04_stamp/', full.names=T ) %>% .[str_starts( ., '04_stamp//simple_normal' )  ]  %>% .[str_ends( ., '.tsv' )] %>% .[str_ends( ., 'edited_genes.tsv', negate=T )]
+#complex_bullseye_results <- list.files( '04_stamp/', full.names=T ) %>% .[str_starts( ., '04_stamp//complex_normal' ) ]  %>% .[str_ends( ., '.tsv' )] %>% .[str_ends( ., 'edited_genes.tsv', negate=T )]
+#simple_multi_results     <- list.files( '04_stamp/', full.names=T ) %>% .[str_starts( ., '04_stamp//simple_relaxed' )  ] %>% .[str_ends( ., '.tsv' )] %>% .[str_ends( ., 'edited_genes.tsv', negate=F )] 
+#complex_multi_results    <- list.files( '04_stamp/', full.names=T ) %>% .[str_starts( ., '04_stamp//complex_relaxed' ) ] %>% .[str_ends( ., '.tsv' )] %>% .[str_ends( ., 'edited_genes.tsv', negate=F )]
+#genome_filename          <- '../reference/ucsc/hg38.fasta'
+#gtf_filename             <- '../reference/ucsc/hg38.gtf'
+#gtf_database             <- 'ucsc'
+#read_files               <- list.files( '04_stamp/', full.names=T ) %>% .[str_ends( ., '.matrix.gz' )]
+#read_filenames           <- list.files( '04_stamp/', full.names=F ) %>% .[str_ends( ., '.matrix.gz' )]
+#read_conditions          <- read_filenames %>% lapply(function(x) sample2condition[[str_split(x, '\\.')[[1]][[1]]]]) %>% unlist()
+#condition_order          <- c( 'FL', 'C-term', 'CTRL' )
+#output_dir               <- '04_stamp/plots'
+#ripseq_location <- '../nandan_mavs_ripseq/'
+#extra_bam_files <- read_tsv(paste0(ripseq_location,'metadata.tsv')) %>% 
+#	filter(method == 'IP') %>% 
+#	nest(.by='condition') %>% 
+#	mutate( files = lapply( data, function(df){
+#		 list( ip    = paste0(ripseq_location, '/03_aligned/', df$sample_id             , '.star_aligned.bam')
+#		     , input = paste0(ripseq_location, '/03_aligned/', df$matching_input_control, '.star_aligned.bam') )
+#	} ) ) %>% 
+#	select(-data) %>% 
+#	deframe()
 
 message('Reading Genome')
 genome <- Rsamtools::FaFile(genome_filename)
@@ -118,7 +118,12 @@ bullseye_genes <- bullseye_results %>%
 	unique()
 
 display_gtf <- filter( gtf, gene_id %in% bullseye_genes )
-gene_list <- unique(display_gtf$gene_id)
+gene_widths <- display_gtf %>%
+	group_by(gene_id) %>% 
+	summarise( start=min(start), end=max(end) ) %>% 
+	mutate(width=end-start) %>% 
+	arrange(width)
+gene_list <- gene_widths$gene_id
 
 sites_of_interest <- display_gtf %>%
 	makeGRangesFromDataFrame() %>% 
@@ -135,6 +140,7 @@ sites_of_interest <- display_gtf %>%
 site_reads <- read_files %>% 
 	set_names(read_files) %>% 
 	map_dfr(function(x){
+		print(x)
 		read_tsv( gzfile(x), col_names=c('chrom', 'site', 'A', 'T', 'C', 'G', '_', 'N'), show_col_types=F ) %>% 
 			filter(chrom %in% names(sites_of_interest)) %>% 
 			group_by(chrom) %>% 
@@ -150,11 +156,14 @@ site_reads <- read_files %>%
 
 
 gene <- gene_list[[1]]
-for( gene in gene_list ){
+for( i in 1:length(gene_list) ){
+	gene <- gene_list[[i]]
 	gene_gtf <- filter( display_gtf, gene_id == gene )
 	gene_chrom <- unique(gene_gtf$seqnames)
 	gene_min_site <- min(gene_gtf$start, gene_gtf$end)
 	gene_max_site <- max(gene_gtf$start, gene_gtf$end)
+	gene_width    <- gene_max_site - gene_min_site
+	print(paste0(gene, '(', gene_width, '): ', i, '/', length(gene_list)))
 	
 	gene_bullseye <- filter( bullseye_results, chrom==gene_chrom & between( start, gene_min_site, gene_max_site ) )
 	
@@ -178,6 +187,7 @@ for( gene in gene_list ){
 		filter(T_tot != 0) %>% 
 		arrange(desc(prop_edited)) %>% 
 		mutate(prop=prop_edited)
+	edit_norm <- max( edit_sites$prop, na.rm=T )
 
 	min_site <- min(gene_sites$site)
 	max_site <- max(gene_sites$site)
@@ -187,7 +197,10 @@ for( gene in gene_list ){
 		group_by( file, condition, chrom ) %>% 
 		group_modify(function(df, g){ #Add missing zeros
 			zero_sites <- setdiff( min_site:max_site, df$site )
-			rbind( df, data.frame( site=zero_sites, N=0 ) )
+			if(length(zero_sites) != 0){
+				df <- rbind( df, data.frame( site=zero_sites, N=0 ) )
+			}
+			df
 		}) %>% 
 		ungroup() %>% 
 		arrange(site) %>% 
@@ -212,35 +225,42 @@ for( gene in gene_list ){
 		pivot_longer(cols=c('ip', 'input'), names_to='type', values_to='pileup') %>% 
 		mutate( pileup=lapply( pileup, function(df){
 			zero_sites <- setdiff( min_site:max_site, df$pos )
-			df %>% 
+			df <- df %>% 
 				select( -seqnames, -which_label ) %>% 
-				rename( site='pos', N='count' ) %>% 
-				rbind(data.frame( site=zero_sites, N=0 )) %>% 
-				filter(between( site, min_site, max_site ))
+				rename( site='pos', N='count' ) 
+			if(!is.null(nrow(zero_sites))){
+				df <- df %>% 
+					rbind(data.frame( site=zero_sites, N=0 )) %>% 
+					filter(between( site, min_site, max_site ))
+			}
+			df
 		})) %>% 
 		unnest(pileup) %>% 
 		group_by( condition, type, site ) %>% 
 		summarise( min=min(N), max=max(N), median=median(N), q1=quantile(N, .25), q3=quantile(N, .75), mean=mean(N), std=sd(N), .groups='drop' )
+	extra_types <- unique(extra_pileups$type)
 	extra_norm <-  extra_pileups %>% 
 		group_by(type) %>% 
 		summarise(norm=ceiling(max(max, na.rm=T))) %>% 
 		deframe()
 	
-	source('workflow/scripts/tracks.R')
+	#source('workflow/scripts/tracks.R')
 	colour_scheme1 <- khroma::colour('muted')(9)
 	colour_map <- c(pileup=colour_scheme1[[2]], prop=colour_scheme1[[1]], input=colour_scheme1[[3]], ip=colour_scheme1[[4]])
 	track <- tracks_create()
 	
 	for( condition_j in unique(extra_pileups$condition) ){
 		sites_condition_j <- filter( extra_pileups, condition==condition_j )
-		track <- tracks_pileup_shade( track, sites_condition_j, separation_variable='type', norm=extra_norm, colour_is_group=T, axis_label=condition_j)
+		for( t in extra_types ){
+			track <- tracks_pileup_shade( obj=track, df=filter( sites_condition_j, type==t ), separation_variable='type', norm=extra_norm[t], colour_is_group=T, axis_label=condition_j)
+		}
 	}
 	
 	track <- tracks_annotation( track, gene_gtf ) 
 	for( condition_i in condition_order ){
 		sites_condition_i <- filter(stamp_pileups, condition==condition_i)
 		edits_condition_i <- filter(edit_sites   , condition==condition_i) %>% select(site, prop)
-		track <- tracks_pileup_shade( track, sites_condition_i, separation_variable='pileup', norm=stamp_norm, prop=edits_condition_i, axis_label=condition_i )
+		track <- tracks_pileup_shade( track, sites_condition_i, separation_variable='pileup', norm=stamp_norm, prop=edits_condition_i, prop_norm=edit_norm, axis_label=condition_i )
 	}	
 	p <- tracks_plot(track)
 	p <- p + 
@@ -252,6 +272,7 @@ for( gene in gene_list ){
 	save_name <- paste0( output_dir, '/', gene_chrom, '.', gene_min_site, '-', gene_max_site, '_', gene_label, '.svg' )
 	dir.create( output_dir, showWarnings=FALSE, recursive=TRUE )
 	ggsave( save_name, plot=p, width=24, height=8 )
+	ggsave( str_replace(save_name, '.svg', 'png'), plot=p, width=24, height=8 )
 	write_tsv( gene_bullseye, str_replace( save_name, '.svg', '.tsv' ) )
 }
 

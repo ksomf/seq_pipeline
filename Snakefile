@@ -79,6 +79,7 @@ if config['pipeline'] == 'ripseq':
 	print('Sample_id2input_id')
 	print(ip_sample_id2input_sample_id)
 elif config['pipeline'] == 'stamp':
+	config['use_whitelist'] = False
 	conditions = list(set(metadata['condition']))
 	sample_id2matching_ids = { d['sample_id']:{ condition:d[f'matching_{condition}'] for condition in conditions if condition != d['condition']} for d in metadata.to_dict(orient='records') }
 

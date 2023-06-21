@@ -39,7 +39,7 @@ tracks_pileup_bar <- function( obj=tracks_create(), df, condition_column ){
 	obj
 }
 
-tracks_pileup_shade <- function( obj=tracks_create(), df, norm=set_names(1, 'condition'), separation_variable='condition', axis_label=NA, colour_is_group=F, colour='pileup', prop=tibble(site=0, prop=0, .rows=0), prop_colour='prop', simplification_digits=2 ){
+tracks_pileup_shade <- function( obj=tracks_create(), df, norm=set_names(1, 'condition'), separation_variable='condition', axis_label=NA, colour_is_group=F, colour='pileup', prop=tibble(site=0, prop=0, .rows=0), prop_min_width=0.001, prop_norm=1, prop_colour='prop', simplification_digits=2 ){
 	base_y <- -obj$width - 1
 	
 	hsignif <- function(x) signif( x, digits=simplification_digits )
@@ -73,10 +73,11 @@ tracks_pileup_shade <- function( obj=tracks_create(), df, norm=set_names(1, 'con
 	
 	prop_df <- prop %>% 
 		mutate( colour=prop_colour ) %>% 
-		mutate( x=site, ymin=base_y, ymax=base_y+prop )
+		mutate( x=site, ymin=base_y, ymax=base_y+prop/prop_norm )
+	prop_label <- paste0( round(prop_norm*100), '%' )
 	
 	obj$width <- obj$width + 1 + obj$padding
-	obj$tracks <- append( obj$tracks, list(list( type='pileup', df=plot_df, prop_df=prop_df, y_bot=base_y-.1, y_top=base_y-.1+1, norm=norm, axis_label=axis_label )) )
+	obj$tracks <- append( obj$tracks, list(list( type='pileup', df=plot_df, prop_min_width=prop_min_width, prop_norm=prop_label, prop_df=prop_df, y_bot=base_y-.1, y_top=base_y-.1+1, norm=norm, axis_label=axis_label )) )
 	obj$track_guides <- c( obj$track_guides, base_y )
 	obj
 }
@@ -230,9 +231,12 @@ tracks_plot <- function( obj ){
 			geom_ribbon( aes(x=x, ymin=ymin2, ymax=ymax2, alpha=1/6, fill=colour), data=pileup$df ) +
 			geom_text(   aes(x=x, y=y, label=label, colour=colour), data=label_df  )
 		if( nrow(pileup$prop_df) != 0 ){
-			prop_df <- data.frame( x=xmin, y=pileup$y_top, label='100%', colour=pileup$prop_df$colour %>% unique())
+			
+			min_half_width <- (xmax - xmin) * pileup$prop_min_width / 2
+			half_width <- max( 0.5, min_half_width )
+			prop_df <- data.frame( x=xmin, y=pileup$y_top, label=pileup$prop_norm, colour=pileup$prop_df$colour %>% unique())
 			p <- p +
-				geom_rect( aes(xmin=x-20, xmax=x+20, ymin=ymin, ymax=ymax, fill=colour ), data=pileup$prop_df ) +
+				geom_rect( aes(xmin=x-half_width, xmax=x+half_width, ymin=ymin, ymax=ymax, fill=colour ), data=pileup$prop_df ) +
 				geom_text( aes(x=x, y=y, label=label, colour=colour), data=prop_df )
 		}
 		if(!is.null(pileup$axis_label)){
