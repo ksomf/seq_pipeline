@@ -135,3 +135,14 @@ if config['pipeline'] == 'stamp':
 		conda: '../envs/pileups.yml'
 		script: '../scripts/stamp_plots.R'
 	
+	rule bullseye_motif_analysis:
+		input:
+			edit_sites  = os.path.join(config["stamp_dir"], 'complex_{bullseye_type}_condition_{named_comparison}.tsv'),
+			gtf         = os.path.join(config["reference_dir"], f'{config["database"]}', f'{config["assembly"]}.gtf'),
+			genome      = os.path.join(config["reference_dir"], f'{config["database"]}', f'{config["assembly"]}.fasta'),
+			genome_fai  = os.path.join(config["reference_dir"], f'{config["database"]}', f'{config["assembly"]}.fasta.fai'),
+		output:
+			seqlogo     = os.path.join(config["stamp_dir"], 'complex_{bullseye_type}_condition_{named_comparison}_seqlogo.svg'),
+			motifs      = os.path.join(config["stamp_dir"], 'complex_{bullseye_type}_condition_{named_comparison}_motifs.tsv'),
+		conda: '../envs/pileups.yml'
+		script: '../scripts/stamp_motifs.R'

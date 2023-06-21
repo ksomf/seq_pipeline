@@ -11,3 +11,4 @@ dependencies:
   - bioconductor-Rsamtools
   - bioconductor-rtracklayer
   - bioconductor-genomicfeatures
+  - r-ggseqlogo

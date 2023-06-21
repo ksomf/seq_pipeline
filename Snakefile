@@ -166,7 +166,7 @@ rule dev_stamp:
 		simple_gbullseye=[os.path.join(config["stamp_dir"], f'simple_relaxed_condition_{condition1}_vs_{condition2}_edited_genes.tsv') for condition1, condition2 in config["simple_comparisons"]],
 		complex_gbullseye=[os.path.join(config["stamp_dir"], f'complex_relaxed_condition_{name}_edited_genes.tsv') for name in config["complex_comparisons"]],
 		plots=os.path.join(config["stamp_dir"], 'plots.flag'),
-
+		motifs=[os.path.join(config["stamp_dir"], f'complex_normal_condition_{name}_seqlogo.svg') for name in config["complex_comparisons"]],
 rule dev_cemi:
 	input:
 		qc=rules.multiqc_report.output.report,
