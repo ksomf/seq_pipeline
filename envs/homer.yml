@@ -1,0 +1,6 @@
+name: seq-pipeline-homer
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - homer

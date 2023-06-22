@@ -142,7 +142,41 @@ if config['pipeline'] == 'stamp':
 			genome      = os.path.join(config["reference_dir"], f'{config["database"]}', f'{config["assembly"]}.fasta'),
 			genome_fai  = os.path.join(config["reference_dir"], f'{config["database"]}', f'{config["assembly"]}.fasta.fai'),
 		output:
-			seqlogo     = os.path.join(config["stamp_dir"], 'complex_{bullseye_type}_condition_{named_comparison}_seqlogo.svg'),
-			motifs      = os.path.join(config["stamp_dir"], 'complex_{bullseye_type}_condition_{named_comparison}_motifs.tsv'),
+			logo        = os.path.join(config["stamp_dir"], 'complex_{bullseye_type}_condition_{named_comparison}_seqlogo.svg'),
 		conda: '../envs/pileups.yml'
 		script: '../scripts/stamp_motifs.R'
+
+	rule bullseye_homer_analysis_combining_reps:
+		input:
+			bams = lambda wildcards: [ sample_id2bam[sample_id] for sample_id in condition2sample_ids[wildcards.condition] ]
+		output:
+			fa = os.path.join(config["stamp_dir"], 'combined_{condition}.fa')
+		threads: 2
+		conda: '../envs/samtools.yml'
+		shell:
+			'''
+				samtools merge {input.bams} - | samtools fasta -0 {output.fa} -
+			'''
+	rule bullseye_homer_analysis_combining:
+		input:
+			ctrl_fa = lambda wildcards: [ temp(local(os.path.join(config["stamp_dir"], f'combined_{condition}.fa'))) for condition in config["complex_comparisons"][wildcards.named_comparison][1] ],
+		output:
+			ctrl_fa = os.path.join(config["stamp_dir"], '{named_comparison}_ctrl.fa'),
+		threads: 8
+		conda: '../envs/samtools.yml'
+		shell:
+			'''
+				samtools merge --threads {threads} {input.ctrl_fa} - | samtools fasta -0 {output.ctrl_fa} -
+			'''
+
+	rule bullseye_homer_analysis:
+		input:
+			condition_fa = lambda wildcards: temp(local(os.path.join(config["stamp_dir"], f'combined_{config["complex_comparisons"][wildcards.named_comparison][0]}.fa'))),
+			ctrl_fa      = lambda wildcards: temp(local(os.path.join(config["stamp_dir"], wildcards.named_comparison + '_ctrl.fa'))),
+		output:
+			homer        = os.path.join(config["stamp_dir"], 'complex_condition_{named_comparison}_homer.txt'),
+		conda: '../envs/homer.yml'
+		shell:
+			'''
+				homer2 denovo -i {input.condition_fa} -b {input.ctrl_fa} > {output.homer}
+			'''
