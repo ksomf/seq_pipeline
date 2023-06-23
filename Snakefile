@@ -31,9 +31,13 @@ defaults = { 'sra_dir'              : '01_sra_download'
 for k, v in defaults.items():
 	if k not in config:
 		config[k] = v
+
+# Starting here we should split it into three big if statements rather than splitting them
+# First come the common stuff like need to align, also add multiqc here
+
 need_to_download = config['metadata_files'] == 'srr'
 need_to_align    = need_to_download | (config['metadata_files'] == 'fastq')
-need_to_count    = config['pipeline'] == 'cemi'
+need_to_count    = config['pipeline'] == 'bulk'
 need_to_peakcall = config['pipeline'] == 'ripseq'
 need_to_stamp    = config['pipeline'] == 'stamp'
 
@@ -93,10 +97,9 @@ elif config['pipeline'] == 'stamp':
 	print(config['simple_comparisons'])
 	print('Complex Comparisons')
 	print(config['complex_comparisons'])
-elif config['pipeline'] == 'cemi':
+elif config['pipeline'] == 'bulk':
 	config['use_whitelist'] = False
 	conditions = list(set(metadata['condition']))
-
 
 multiqc_inputs = []
 #generate multiqc files
@@ -128,48 +131,38 @@ include: 'rules/align_star.smk'
 include: 'rules/align_bowtie2.smk'
 
 #*IP-seq Rules
-include: 'rules/macs2.smk'
-include: 'rules/piranha.smk'
-include: 'rules/pepr.smk'
-include: 'rules/deq.smk'
-include: 'rules/thor.smk'
-include: 'rules/genrich.smk'
-include: 'rules/diffbind.smk'
-#include: 'rules/multigps.smk'
-include: 'rules/pileups.smk'
+if config['pipeline'] == 'ripseq':
+	include: 'rules/macs2.smk'
+	include: 'rules/piranha.smk'
+	include: 'rules/pepr.smk'
+	include: 'rules/deq.smk'
+	include: 'rules/thor.smk'
+	include: 'rules/genrich.smk'
+	include: 'rules/pileups.smk'
 
-#Stamp Rules
-include: 'rules/bullseye.smk'
-include: 'rules/sailor.smk'
+if config['pipeline'] == 'stamp':
+	include: 'rules/bullseye.smk'
 
-#Cemi Rules
-include: 'rules/cemi.smk'
+if config['pipeline'] == 'ripseq':
+	rule all:
+		input:
+			pileups=rules.plot_pileups.output.summary_file,
+			qc     =rules.multiqc_report.output.report,
 
-rule all:
-	input:
-		peak_calls=[os.path.join(config['peakcalling_dir'], f'{sample_id}_peaks.narrowPeak') for sample_id in sample_ids_ip],
-		diffbind_pepr=os.path.join(config["peakcalling_dir"],'pepr','MAVSvsd103-467_PePr_chip1_peaks.bed'),
-		genrich_mavs=os.path.join(config["peakcalling_dir"],'genrich','MAVS_peaks.narrowPeak'),
-		genrich_ds=os.path.join(config["peakcalling_dir"],'genrich','d103-467_peaks.narrowPeak'),
-		qc=rules.multiqc_report.output.report,
+if config['pipeline'] == 'stamp':
+	rule all:
+		input:
+			simple_bullseye=[os.path.join(config["stamp_dir"], f'simple_normal_condition_{condition1}_vs_{condition2}.tsv') for condition1, condition2 in config["simple_comparisons"]],
+			complex_bullseye=[os.path.join(config["stamp_dir"], f'complex_normal_condition_{name}.tsv') for name in config["complex_comparisons"]],
+			qc=rules.multiqc_report.output.report,
+			simple_gbullseye=[os.path.join(config["stamp_dir"], f'simple_relaxed_condition_{condition1}_vs_{condition2}_edited_genes.tsv') for condition1, condition2 in config["simple_comparisons"]],
+			complex_gbullseye=[os.path.join(config["stamp_dir"], f'complex_relaxed_condition_{name}_edited_genes.tsv') for name in config["complex_comparisons"]],
+			plots=os.path.join(config["stamp_dir"], 'plots.flag'),
+			motifs=[os.path.join(config["stamp_dir"], f'complex_normal_condition_{name}_seqlogo.svg') for name in config["complex_comparisons"]],
+			homer=[os.path.join(config["stamp_dir"], f'complex_condition_{name}_homer.txt') for name in config["complex_comparisons"]],
 
-rule dev_ripseq:
-	input:
-		pileups=rules.plot_pileups.output.summary_file,
-		qc     =rules.multiqc_report.output.report,
-
-rule dev_stamp:
-	input:
-		simple_bullseye=[os.path.join(config["stamp_dir"], f'simple_normal_condition_{condition1}_vs_{condition2}.tsv') for condition1, condition2 in config["simple_comparisons"]],
-		complex_bullseye=[os.path.join(config["stamp_dir"], f'complex_normal_condition_{name}.tsv') for name in config["complex_comparisons"]],
-		qc=rules.multiqc_report.output.report,
-		simple_gbullseye=[os.path.join(config["stamp_dir"], f'simple_relaxed_condition_{condition1}_vs_{condition2}_edited_genes.tsv') for condition1, condition2 in config["simple_comparisons"]],
-		complex_gbullseye=[os.path.join(config["stamp_dir"], f'complex_relaxed_condition_{name}_edited_genes.tsv') for name in config["complex_comparisons"]],
-		plots=os.path.join(config["stamp_dir"], 'plots.flag'),
-		motifs=[os.path.join(config["stamp_dir"], f'complex_normal_condition_{name}_seqlogo.svg') for name in config["complex_comparisons"]],
-		homer=[os.path.join(config["stamp_dir"], f'complex_condition_{name}_homer.txt') for name in config["complex_comparisons"]],
-
-rule dev_cemi:
-	input:
-		qc=rules.multiqc_report.output.report,
-		counts=rules.count_matrix.output,
+if config['pipeline'] == 'bulk':
+	rule all:
+		input:
+			qc=rules.multiqc_report.output.report,
+			counts=rules.count_matrix.output,

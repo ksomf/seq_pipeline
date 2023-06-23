@@ -1,0 +1,7 @@
+aligner: star
+assembly: mm39
+metadata: parameter_templates/metadata_config.tsv
+metadata_files: fastq
+pipeline: bulk
+readlength: 300
+reference_dir: ../reference

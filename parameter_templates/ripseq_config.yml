@@ -1,0 +1,13 @@
+aligner: star
+assembly: hg38
+manual_peak_files:
+  name_to_give: path/to/{simple,complex}_{relaxed,normal}_{name}_edited_genes.tsv
+  name_to_give: path/to/{simple,complex}_{relaxed,normal}_{name}_edited_genes.tsv
+metadata: paramete_templates/ripseq_metadata.tsv
+metadata_files: fastq
+pipeline: ripseq
+readlength: 75
+reference_dir: ../reference
+treatment_conditions:
+- condition_1
+control_condition: condition_2

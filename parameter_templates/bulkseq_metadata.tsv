@@ -1,0 +1,8 @@
+sample_id	condition	R1	R2
+s0	conditin_1	s0_read1_fq	s0_read2_fq
+s1	conditin_1	s1_read1_fq	s1_read2_fq
+s2	conditin_1	s2_read1_fq	s2_read2_fq
+s3	conditin_2	s3_read1_fq	s3_read2_fq
+s4	conditin_2	s4_read1_fq	s4_read2_fq
+s5	conditin_2	s5_read1_fq	s5_read2_fq
+...

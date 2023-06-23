@@ -20,7 +20,6 @@ rule count_matrix_feature_counts:
 			              -o {output.counts} \
 			              {input.bams}
 		'''
-	
 
 rule count_matrix:
 	input:  rules.count_matrix_feature_counts.output.counts,
@@ -35,6 +34,3 @@ rule count_matrix:
 		df = df.rename(columns=bam2sample_id)
 		df = df[result_columns]
 		df.to_csv( output[0], sep='\t', index=False )
-
-
-

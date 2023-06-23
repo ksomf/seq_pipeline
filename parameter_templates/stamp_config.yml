@@ -1,0 +1,38 @@
+aligner: star
+assembly: hg38
+display_order:
+- condition_1
+- condition_2
+- condition_3
+extra_bam_files:
+  group1_name:
+    input:
+    - path/to/bam
+    - ...
+    ip:
+    - path/to/bam
+    - ...
+  group2_name:
+    input:
+    - path/to/bam
+    - ...
+    ip:
+    - path/to/bam
+    - ...
+metadata: parameter_templates/stamp_metadata.tsv
+metadata_files: fastq
+pipeline: stamp
+readlength: 100
+reference_dir: ../reference
+complex_comparisons:
+  condition_1_vs_all:
+  - condition_1
+  - - condition_2
+    - condition_3
+simple_comparisons:
+- - condition_1
+  - condition_2
+- - condition_1
+  - condition_3
+- - condition_2
+  - condition_3

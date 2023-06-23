@@ -1,0 +1,14 @@
+sample_id	condition	method	R1	R2	matching_input_control
+S1	condition_1	IP	r1.fq	r2.fq	S7
+S3	condition_1	IP	r1.fq	r2.fq	S9
+S5	condition_1	IP	r1.fq	r2.fq	S11
+S11	condition_1	Input	r1.fq	r2.fq	S11
+S7	condition_1	Input	r1.fq	r2.fq	S7
+S9	condition_1	Input	r1.fq	r2.fq	S9
+S2	condition_2	IP	r1.fq	r2.fq	S8
+S4	condition_2	IP	r1.fq	r2.fq	S10
+S6	condition_2	IP	r1.fq	r2.fq	S12
+S10	condition_2	Input	r1.fq	r2.fq	S10
+S12	condition_2	Input	r1.fq	r2.fq	S12
+S8	condition_2	Input	r1.fq	r2.fq	S8
+...

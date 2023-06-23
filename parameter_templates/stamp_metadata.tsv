@@ -1,0 +1,10 @@
+condition	R1	R2	sample_id	matching_{condition_1}	matching_{condition_2}	matching_{condition_3}
+condition_3	RNA	r1.fq	r2.fq	S0	S1	S7	S0
+condition_1	RNA	r1.fq	r2.fq	S1	S1	S7	S0
+condition_1	RNA	r1.fq	r2.fq	S2	S2	S4	S8
+condition_2	RNA	r1.fq	r2.fq	S3	S5	S3	S6
+condition_2	RNA	r1.fq	r2.fq	S4	S2	S4	S8
+condition_1	RNA	r1.fq	r2.fq	S5	S5	S3	S6
+condition_3	RNA	r1.fq	r2.fq	S6	S5	S3	S6
+condition_2	RNA	r1.fq	r2.fq	S7	S1	S7	S0
+condition_3	RNA	r1.fq	r2.fq	S8	S2	S4	S8
