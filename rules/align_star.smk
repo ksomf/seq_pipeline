@@ -95,18 +95,13 @@ rule star_align_pair_end:
 			     --outSAMtype        BAM Unsorted
 		'''
 
-rule star_sorted_bam:
+use rule sorted_bam as star_sorted_bam with:
 	input:
 		aligned_file=os.path.join(config['align_dir'], '{sample_id}.star_aligned.unsorted.Aligned.out.bam'),
 	output:
 		sorted_file=os.path.join(config['align_dir'], '{sample_id}.star_aligned.unfiltered.bam'),
-	params:
-		work_dir=lambda wildcards, output: os.path.dirname(output['sorted_file']),
-	conda: '../envs/align_star.yml'
-	threads: 16
-	shell: 'samtools sort --output-fmt bam --threads {threads} -T {params.work_dir}/{wildcards.sample_id} -o {output.sorted_file} {input.aligned_file}'
 
-use rule star_sorted_bam as star_sorted_transcriptome_bam with:
+use rule sorted_bam as star_sorted_transcriptome_bam with:
 	input:
 		aligned_file=os.path.join(config['align_dir'], '{sample_id}.star_aligned.unsorted.Aligned.toTranscriptome.out.bam'),
 	output:

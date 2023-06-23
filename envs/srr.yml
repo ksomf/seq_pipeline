@@ -1,10 +1,8 @@
-name: seq-pipeline-align
+name: seq-pipeline-srr
 channels:
   - conda-forge
   - bioconda
 dependencies:
   - python=3
-  - samtools
-  - subread
-  - cutadapt
-
+  - sra-tools
+  - parallel-fastq-dump

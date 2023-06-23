@@ -1,9 +1,6 @@
-# snakemake --cores 32 --use-conda --conda-frontend mamba dev
+# snakemake --cores 32 --use-conda --conda-frontend mamba all
 
-#TODO(KIM): Use rules. .inputa forms where it makes sense
 #TODO(KIM): Should I reduce all genomics to the standard chromosomes?
-#TODO(KIM): Decide if I should delete unimplemented chip pipelines
-#TODO(KIM): Make the blacklist use the standard chromosome names by using the chrom report to map
 
 import numpy      as np
 import pandas     as pd
@@ -32,35 +29,76 @@ for k, v in defaults.items():
 	if k not in config:
 		config[k] = v
 
-# Starting here we should split it into three big if statements rather than splitting them
-# First come the common stuff like need to align, also add multiqc here
-
-need_to_download = config['metadata_files'] == 'srr'
-need_to_align    = need_to_download | (config['metadata_files'] == 'fastq')
-need_to_count    = config['pipeline'] == 'bulk'
-need_to_peakcall = config['pipeline'] == 'ripseq'
-need_to_stamp    = config['pipeline'] == 'stamp'
-
 metadata = pd.read_csv(config['metadata'], sep='\t')
-sample_ids = metadata['sample_id']
 
-sample_readlist = []
-sample_id2reads = {}
-sample_id2bam   = { s:os.path.join(config['align_dir'], f'{s}.{config["aligner"]}_aligned.bam') for s in sample_ids }
-if need_to_align:
-	sample_readlist = list(map(lambda s: s, chain(metadata['R1'],metadata['R2'])))
-	sample_id2reads = dict(zip(metadata['sample_id'],zip(metadata['R1'],metadata['R2'])))
-else:
-	sample_id2bam   = dict(zip(metadata['sample_id'],metadata['bam']))
+# Setup helper list/maps
+multiqc_inputs = [] # The files to run multiqc on
 
-ip_sample_id2input_sample_id = dict()
-metadata_ip_only    = []
-metadata_input_only = []
-sample_ids_ip       = []
+sample_ids      = metadata['sample_id']
+sample_id2fastq = {} # The location of fastq files , whether given or generated
+sample_id2bam   = {} # The location of the bam file, whether given or generated
+
+conditions = list(set(metadata['condition']))
 condition2sample_ids = { g[0]:df['sample_id'].to_list() for g, df in metadata.groupby(['condition']) }
-condition2input_ids  = {}
-if config['pipeline'] == 'ripseq':
-	conditions = config['treatment_conditions'] + [config['control_condition']]
+
+# Setups based on input filetype
+if   config['metadata_files'] == 'srr':
+	sample_id2fastq = { sample_id:[os.path.join(config["fastq_dir"], f'{sample_id}_{read}.fastq.gz') for read in ['r1', 'r2']] for sample_id in sample_ids }
+	sample_id2bam   = { sample_id:os.path.join(config["align_dir"], f'{sample_id}.{config["aligner"]}_aligned.bam') for sample_id in sample_ids }
+
+	include: 'rules/srr.smk'
+elif config['metadata_files'] == 'fastq':
+	sample_id2fastq = { sample_id:[r1,r2] for sample_id,r1,r2 in zip( metadata['sample_id'], metadata['R1'], metadata['R2'] ) }
+	sample_id2bam   = { sample_id:os.path.join(config["align_dir"], f'{sample_id}.{config["aligner"]}_aligned.bam') for sample_id in sample_ids }
+elif config['metadata_files'] == 'bam':
+	sample_id2bam   = dict(zip(metadata['sample_id'], metadata['bam']))
+else:
+	print(f'Unsuported filetype, config["metadata_files"]: {config["metadata_files"]}')
+	exit(1)
+if 'adapters' in config:
+	sample_id2fastq = { k:[v.replace('fastq.gz', 'trim.fastq.gz').replace('fq.gz','.trim.fq.gz') for v in vs] for k, vs in sample_id2fastq.items() }
+fastq_files = [ v for k,vs in sample_id2fastq.items() for v in vs ]
+
+# Setup for multiqc files
+multiqc_inputs += [ os.path.join(config['fastq_dir'], os.path.basename(f).replace('.fastq.gz','_fastqc.zip' ).replace('.fq.gz','_fastqc.zip') ) for k,vs in sample_id2fastq.items() for f in vs ]
+if config['metadata_files'] != 'bam':
+	if config['aligner'] == 'star':
+		multiqc_inputs += [ os.path.join(config['align_dir'], f'{sample_id}.star_aligned.unsorted.Log.final.out') for sample_id in sample_ids ]
+	elif config['aligner'] == 'bowtie2':
+		print('Need to determine bowtie2 multiqc files')
+	else:
+		print(f'Unsuported aligner, config["aligner"]: {config["aligner"]}')
+		exit(1)
+
+# Common Rules
+wildcard_constraints:
+	sample_id        = '|'.join(sample_ids),
+	sample1_id       = '|'.join(sample_ids),
+	sample2_id       = '|'.join(sample_ids),
+	aligner          = '|'.join(['star','bowtie2']),
+	condition        = '|'.join(conditions),
+	condition1       = '|'.join(conditions),
+	condition2       = '|'.join(conditions),
+	named_comparison = '|'.join(config['complex_comparisons'].keys())
+include: 'rules/assemblies.smk'
+include: 'rules/bam_utils.smk'
+include: 'rules/qc.smk'
+include: 'rules/align.smk'
+include: 'rules/align_star.smk'
+include: 'rules/align_bowtie2.smk'
+
+# The pipelines
+if config['pipeline'] == 'bulk':
+	config['use_whitelist'] = False
+	multiqc_inputs += [ os.path.join( config['align_dir'], 'counts.raw_feature_counts.tsv.summary' ) ]
+
+	rule all:
+		input:
+			qc=rules.multiqc_report.output.report,
+			counts=rules.count_matrix.output,
+
+elif config['pipeline'] == 'ripseq':
+	config['treatment_conditions'] = set(conditions) - set(config['control_condition'])
 	ip_sample_id2input_sample_id = dict(filter(lambda xs: xs[0] != xs[1], zip(metadata['sample_id'],metadata['matching_input_control'])))
 	metadata_ip_only    = metadata[ metadata['method']=='IP' ]
 	metadata_input_only = metadata[ metadata['method']=='Input' ]
@@ -82,6 +120,21 @@ if config['pipeline'] == 'ripseq':
 	print(condition2input_ids)
 	print('Sample_id2input_id')
 	print(ip_sample_id2input_sample_id)
+	multiqc_inputs += [ os.path.join(config["peakcalling_dir"], f'{sample_id}_full_peaks.xls') for sample_id in sample_ids_ip ]
+
+	include: 'rules/macs2.smk'
+	include: 'rules/piranha.smk'
+	include: 'rules/pepr.smk'
+	include: 'rules/deq.smk'
+	include: 'rules/thor.smk'
+	include: 'rules/genrich.smk'
+	include: 'rules/pileups.smk'
+
+	rule all:
+		input:
+			pileups=rules.plot_pileups.output.summary_file,
+			qc     =rules.multiqc_report.output.report,
+
 elif config['pipeline'] == 'stamp':
 	config['use_whitelist'] = False
 	conditions = list(set(metadata['condition']))
@@ -97,59 +150,9 @@ elif config['pipeline'] == 'stamp':
 	print(config['simple_comparisons'])
 	print('Complex Comparisons')
 	print(config['complex_comparisons'])
-elif config['pipeline'] == 'bulk':
-	config['use_whitelist'] = False
-	conditions = list(set(metadata['condition']))
 
-multiqc_inputs = []
-#generate multiqc files
-if need_to_align:
-	multiqc_inputs += [ os.path.join(config['fastq_dir'], os.path.basename(f).replace('.fastq.gz','_fastqc.zip' ).replace('.fq.gz','_fastqc.zip') ) for f in sample_readlist ]
-	if config['aligner'] == 'star':
-		multiqc_inputs += [ os.path.join(config['align_dir'], f'{sample_id}.star_aligned.unsorted.Log.final.out') for sample_id in sample_ids ]
-if need_to_peakcall:
-	multiqc_inputs += [ os.path.join(config["peakcalling_dir"], f'{sample_id}_full_peaks.xls') for sample_id in sample_ids_ip ]
-if need_to_count:
-	multiqc_inputs += [ os.path.join( config['align_dir'], 'counts.raw_feature_counts.tsv.summary' ) ]
-
-wildcard_constraints:
-	sample_id        = '|'.join(sample_ids),
-	sample1_id       = '|'.join(sample_ids),
-	sample2_id       = '|'.join(sample_ids),
-	aligner          = '|'.join(['star','bowtie2']),
-	condition        = '|'.join(conditions),
-	condition1       = '|'.join(conditions),
-	condition2       = '|'.join(conditions),
-	named_comparison = '|'.join(config['complex_comparisons'].keys())
-
-#Common Rules
-include: 'rules/assemblies.smk'
-include: 'rules/bam_utils.smk'
-include: 'rules/qc.smk'
-include: 'rules/align.smk'
-include: 'rules/align_star.smk'
-include: 'rules/align_bowtie2.smk'
-
-#*IP-seq Rules
-if config['pipeline'] == 'ripseq':
-	include: 'rules/macs2.smk'
-	include: 'rules/piranha.smk'
-	include: 'rules/pepr.smk'
-	include: 'rules/deq.smk'
-	include: 'rules/thor.smk'
-	include: 'rules/genrich.smk'
-	include: 'rules/pileups.smk'
-
-if config['pipeline'] == 'stamp':
 	include: 'rules/bullseye.smk'
 
-if config['pipeline'] == 'ripseq':
-	rule all:
-		input:
-			pileups=rules.plot_pileups.output.summary_file,
-			qc     =rules.multiqc_report.output.report,
-
-if config['pipeline'] == 'stamp':
 	rule all:
 		input:
 			simple_bullseye=[os.path.join(config["stamp_dir"], f'simple_normal_condition_{condition1}_vs_{condition2}.tsv') for condition1, condition2 in config["simple_comparisons"]],
@@ -160,9 +163,3 @@ if config['pipeline'] == 'stamp':
 			plots=os.path.join(config["stamp_dir"], 'plots.flag'),
 			motifs=[os.path.join(config["stamp_dir"], f'complex_normal_condition_{name}_seqlogo.svg') for name in config["complex_comparisons"]],
 			homer=[os.path.join(config["stamp_dir"], f'complex_condition_{name}_homer.txt') for name in config["complex_comparisons"]],
-
-if config['pipeline'] == 'bulk':
-	rule all:
-		input:
-			qc=rules.multiqc_report.output.report,
-			counts=rules.count_matrix.output,
