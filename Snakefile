@@ -168,6 +168,7 @@ rule dev_stamp:
 		plots=os.path.join(config["stamp_dir"], 'plots.flag'),
 		motifs=[os.path.join(config["stamp_dir"], f'complex_normal_condition_{name}_seqlogo.svg') for name in config["complex_comparisons"]],
 		homer=[os.path.join(config["stamp_dir"], f'complex_condition_{name}_homer.txt') for name in config["complex_comparisons"]],
+
 rule dev_cemi:
 	input:
 		qc=rules.multiqc_report.output.report,

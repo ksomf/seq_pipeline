@@ -10,13 +10,13 @@ gtf_file        <- snakemake@input[['gtf']]
 
 output_file    <- snakemake@output[['logo']]
 
-metadata <- read_tsv('metadata.tsv')
-bam_files       <- paste0('03_aligned/', filter( metadata, condition=='FL' )$sample_id, '.star_aligned.bam')
-bam_index_files <- paste0('03_aligned/', filter( metadata, condition=='FL' )$sample_id, '.star_aligned.bam.bai')
-edit_file       <- '04_stamp/complex_normal_condition_fl_vs_all.tsv'
-genome_file     <- '../reference/ucsc/hg38.fasta'
-gtf_file        <- '../reference/ucsc/hg38.gtf'
-output_file     <- '04_stamp/motif_logo.svg'
+#metadata <- read_tsv('metadata.tsv')
+#bam_files       <- paste0('03_aligned/', filter( metadata, condition=='FL' )$sample_id, '.star_aligned.bam')
+#bam_index_files <- paste0('03_aligned/', filter( metadata, condition=='FL' )$sample_id, '.star_aligned.bam.bai')
+#edit_file       <- '04_stamp/complex_normal_condition_fl_vs_all.tsv'
+#genome_file     <- '../reference/ucsc/hg38.fasta'
+#gtf_file        <- '../reference/ucsc/hg38.gtf'
+#output_file     <- '04_stamp/motif_logo.svg'
 
 genome <- readDNAStringSet(genome_file)
 gtf    <- rtracklayer::import(gtf_file)
