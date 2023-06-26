@@ -1,0 +1,7 @@
+adapters:
+  - r1_adapter  : 'AAAAAAAAAAAAAAAAAAAAAA'
+  - r1_front    : 'AAAAAAAAAAAAAAAAAAAAAA'
+  - r1_anywhere : 'AAAAAAAAAAAAAAAAAAAAAA'
+  - r2_adapter  : 'AAAAAAAAAAAAAAAAAAAAAA'
+  - r2_front    : 'AAAAAAAAAAAAAAAAAAAAAA'
+  - r2_anywhere : 'AAAAAAAAAAAAAAAAAAAAAA'
