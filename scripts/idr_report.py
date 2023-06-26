@@ -2,12 +2,8 @@ import pandas as pd
 
 from itertools import combinations
 
-report_filenames = [ f'../04_peakcalling/idr/MAVS_{s1}_{s2}_report.tsv' for s1, s2 in combinations(['S1','S3','S5'],2) ]
-output_filename  = '../04_peakcalling/idr/MAVS_report.txt'
-
 report_filenames = snakemake.input['reports']
 output_filename  = snakemake.output['report']
-
 
 df = pd.concat([ pd.read_csv(f, sep='\t') for f in report_filenames ])
 

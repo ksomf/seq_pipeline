@@ -31,9 +31,9 @@ extra_bam_files          <- snakemake@params[['extra_bam_files']]
 #read_files               <- list.files( '04_stamp/', full.names=T ) %>% .[str_ends( ., '.matrix.gz' )]
 #read_filenames           <- list.files( '04_stamp/', full.names=F ) %>% .[str_ends( ., '.matrix.gz' )]
 #read_conditions          <- read_filenames %>% lapply(function(x) sample2condition[[str_split(x, '\\.')[[1]][[1]]]]) %>% unlist()
-#condition_order          <- c( 'FL', 'C-term', 'CTRL' )
+#condition_order          <- unique(metadata['condtion'])
 #output_dir               <- '04_stamp/plots'
-#ripseq_location <- '../nandan_mavs_ripseq/'
+#ripseq_location <- '../{ripseq_pileline_folder}/'
 #extra_bam_files <- read_tsv(paste0(ripseq_location,'metadata.tsv')) %>% 
 #	filter(method == 'IP') %>% 
 #	nest(.by='condition') %>% 

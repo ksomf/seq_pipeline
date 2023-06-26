@@ -8,10 +8,10 @@ rule deq_macs2_beds:
 
 rule deq_diffbind:
 	input:
-		condition1_ips    = lambda wildcards: [ sample_id2bam[sample_id]   for sample_id in condition2sample_ids[wildcards.condition1] ],
-		condition1_inputs = lambda wildcards: [ sample_id2bam[sample_id]   for sample_id in condition2input_ids [wildcards.condition1] ],
-		condition2_ips    = lambda wildcards: [ sample_id2bam[sample_id]   for sample_id in condition2sample_ids[wildcards.condition2] ],
-		condition2_inputs = lambda wildcards: [ unique_file_bam[sample_id] for sample_id in condition2input_ids [wildcards.condition2] ],
+		condition1_ips    = lambda wildcards: [ sample_id2bam[sample_id] for sample_id in condition2sample_ids[wildcards.condition1] ],
+		condition1_inputs = lambda wildcards: [ sample_id2bam[sample_id] for sample_id in condition2input_ids [wildcards.condition1] ],
+		condition2_ips    = lambda wildcards: [ sample_id2bam[sample_id] for sample_id in condition2sample_ids[wildcards.condition2] ],
+		condition2_inputs = lambda wildcards: [ sample_id2bam[sample_id] for sample_id in condition2input_ids [wildcards.condition2] ],
 		peaks             = os.path.join(config['peakcalling_dir'], 'deq', '{condition1}_vs_{condition2}_combined_peaks.bed'),
 		gtf               = os.path.join(config['reference_dir'], config['database'], config['assembly']+'.gtf'),
 		bam_infos         = lambda wildcards: [ sample_id2bam[sample_id].replace('.bam','.transcriptome.baminfo.tsv') for sample_id in chain( condition2sample_ids[wildcards.condition1]

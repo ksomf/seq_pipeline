@@ -12,16 +12,6 @@ sample1_id           = snakemake.params['sample1_id']
 sample2_id           = snakemake.params['sample2_id']
 condition            = snakemake.params['condition']
 
-#filename_idr_true    = '../04_peakcalling/idr/MAVS_S1_S3_true.tsv'
-#filename_idr_pool    = '../04_peakcalling/idr/MAVS_S1_S3_pooled.tsv'
-#filename_idr_pseudo1 = '../04_peakcalling/idr/MAVS_S1_pseudo.tsv'
-#filename_idr_pseudo2 = '../04_peakcalling/idr/MAVS_S3_pseudo.tsv'
-#idr_cuttoff          = 0.05
-#idr_cuttoff_pooled   = 0.01 #Recomendation as per https://github.com/hbctraining/Intro-to-ChIPseq-flipped/blob/main/lessons/handling-replicates.md
-#sample1_id           = 'S1'
-#sample2_id           = 'S3'
-#condition            = 'MAVS'
-
 #https://github.com/nboley/idr
 idr_column_names = ['chrom', 'start', 'end', 'name', 'scaled_idr', 'strand', 'enrichment', 'p_value', 'q_value', 'merged_peak_summit', 'local_idr', 'global_idr', 's1_start', 's1_end', 's1_enrichment', 's1_summit', 's2_start', 's2_end', 's2_enrichment', 's2_summit' ]
 idr_true    = pd.read_csv(filename_idr_true   , sep='\t', names=idr_column_names )

@@ -5,8 +5,8 @@ library(deq)
 
 ## TEST
 #metadata <- read_tsv('metadata.tsv')
-#metadata_condition1 <- filter( metadata, condition=='MAVS' )
-#metadata_condition2 <- filter( metadata, condition=='d103-467' )
+#metadata_condition1 <- filter( metadata, condition=='{condition_1}' )
+#metadata_condition2 <- filter( metadata, condition=='{condition_2}' )
 #metadata_condition1_samples_ip    <- filter( metadata_condition1, method=='IP' )   $sample_id
 #metadata_condition1_samples_input <- filter( metadata_condition1, method=='Input' )$sample_id
 #metadata_condition2_samples_ip    <- filter( metadata_condition2, method=='IP' )   $sample_id
@@ -16,12 +16,12 @@ library(deq)
 #condition1_input_filenames <- paste0( '03_aligned/', metadata_condition1_samples_input, '.star_aligned.bam' )
 #condition2_ip_filenames    <- paste0( '03_aligned/', metadata_condition2_samples_ip   , '.star_aligned.bam' )
 #condition2_input_filenames <- paste0( '03_aligned/', metadata_condition2_samples_input, '.star_aligned.bam' )
-#peak_filename              <- '04_peakcalling/deq/MAVS_vs_d103-467_combined_peaks.bed'
+#peak_filename              <- '04_peakcalling/deq/{condition_1}_vs_{condition_2}_combined_peaks.bed'
 #gtf_filename               <- '../reference/ucsc/hg38.gtf'
 #
 #read_length                <- 75
 
-#output_filename <- '04_peakcalling/deq/MAVS_vs_d103-467.txt'
+#output_filename <- '04_peakcalling/deq/{condition_1}_vs_{condition_2}.txt'
 
 # SNAKEMAKE
 condition1_ip_filenames    <- snakemake@input[['condition1_ips']]

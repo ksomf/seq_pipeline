@@ -20,6 +20,7 @@ defaults = { 'sra_dir'              : '01_sra_download'
            , 'metadata_file'        : 'metadata.tsv'
            , 'reference_dir'        : 'reference'
            , 'database'             : 'ucsc'
+           , 'use_whitelist'        : True
            , 'treatment_conditions' : []
            , 'simple_comparisons'   : []
            , 'complex_comparisons'  : {}
@@ -89,6 +90,7 @@ include: 'rules/align_bowtie2.smk'
 
 # The pipelines
 if config['pipeline'] == 'bulk':
+	print('Running Bulk Seq Pipeline')
 	config['use_whitelist'] = False
 	multiqc_inputs += [ os.path.join( config['align_dir'], 'counts.raw_feature_counts.tsv.summary' ) ]
 
@@ -98,29 +100,14 @@ if config['pipeline'] == 'bulk':
 			counts=rules.count_matrix.output,
 
 elif config['pipeline'] == 'ripseq':
+	print('Running Rip Seq Pipeline')
 	config['treatment_conditions'] = set(conditions) - set(config['control_condition'])
 	ip_sample_id2input_sample_id = dict(filter(lambda xs: xs[0] != xs[1], zip(metadata['sample_id'],metadata['matching_input_control'])))
 	metadata_ip_only    = metadata[ metadata['method']=='IP' ]
 	metadata_input_only = metadata[ metadata['method']=='Input' ]
-	sample_ids_ip       = metadata_ip_only['sample_id']
 	condition2sample_ids = { g[0]:df['sample_id'].to_list() for g, df in metadata_ip_only.groupby(['condition']) }
 	condition2input_ids  = { g:[ip_sample_id2input_sample_id[s] for s in condition2sample_ids[g]] for g in condition2sample_ids.keys() }
-	shared_input_controls = [ sample_id for sample_id in metadata_ip_only['matching_input_control'] if len(metadata_ip_only[metadata_ip_only['matching_input_control'] == sample_id]) > 1 ]
-	unique_file_bam = {}
-	for s in metadata_input_only['sample_id']:
-		res = sample_id2bam[s]
-		if np.isin( s, shared_input_controls ):
-			res = res.replace('.bam','copy.bam')
-		unique_file_bam[s] = res
-	print('Conditions')
-	print(conditions)
-	print('Conditin2samples')
-	print(condition2sample_ids)
-	print('Conditin2inputs')
-	print(condition2input_ids)
-	print('Sample_id2input_id')
-	print(ip_sample_id2input_sample_id)
-	multiqc_inputs += [ os.path.join(config["peakcalling_dir"], f'{sample_id}_full_peaks.xls') for sample_id in sample_ids_ip ]
+	multiqc_inputs += [ os.path.join(config["peakcalling_dir"], f'{sample_id}_full_peaks.xls') for sample_id in metadata_ip_only['sample_id'] ]
 
 	include: 'rules/macs2.smk'
 	include: 'rules/piranha.smk'

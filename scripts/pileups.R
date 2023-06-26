@@ -5,46 +5,48 @@ library(furrr)
 library(rtracklayer)
 library(tidyverse)
 
+source('workflow/scripts/tracks.R')
+
 theme_set(theme_void())
 
 LERP <- function(y1, y2, x){y1 + (y2-y1)*x}
 
-condition_peaks <- '04_peakcalling/analysis/condition_peaks.tsv'
-diffbind_peaks  <- '04_peakcalling/analysis/diffbind_peaks.tsv'
-manual_peaks    <- '04_peakcalling/analysis/manual_peaks.tsv'
-bam_files       <- list.files('03_aligned/', full.names=TRUE ) %>% .[str_ends(.,'star_aligned.bam')]
-bam_index_files <- list.files('03_aligned/', full.names=TRUE ) %>% .[str_ends(.,'star_aligned.bam.bai')]
-library_sizes   <- '04_peakcalling/analysis/library_sizes.tsv'
-gtf_filename    <- '../reference/ucsc/hg38.gtf'
-
-sample_ids            <- list.files('03_aligned/', full.names=FALSE) %>% .[str_ends(.,'star_aligned.bam')] %>% str_remove('.star_aligned.bam')
-treatment_conditions  <- 'MAVS'
-control_condition     <- 'd103-467'
-metadata_filename     <- 'metadata.tsv'
-gtf_database          <- 'ucsc'
-
-output_dir            <- '04_peakcalling/analysis/plots/'
-output_signal         <- '04_peakcalling/analysis/summary.txt'
-
-threads               <- 32
-
-#condition_peaks <- snakemake@input[['condition_peaks']]
-#diffbind_peaks  <- snakemake@input[['diffbind_peaks' ]]
-#bam_files       <- snakemake@input[['bam_files'      ]]
-#bam_index_files <- snakemake@input[['bam_index_files']]
-#library_sizes   <- snakemake@input[['library_sizes'  ]]
-#gtf_filename    <- snakemake@input[['gtf'            ]]
+#condition_peaks <- '04_peakcalling/analysis/condition_peaks.tsv'
+#diffbind_peaks  <- '04_peakcalling/analysis/diffbind_peaks.tsv'
+#manual_peaks    <- '04_peakcalling/analysis/manual_peaks.tsv'
+#bam_files       <- list.files('03_aligned/', full.names=TRUE ) %>% .[str_ends(.,'star_aligned.bam')]
+#bam_index_files <- list.files('03_aligned/', full.names=TRUE ) %>% .[str_ends(.,'star_aligned.bam.bai')]
+#library_sizes   <- '04_peakcalling/analysis/library_sizes.tsv'
+#gtf_filename    <- '../reference/ucsc/hg38.gtf'
 #
-#treatment_conditions  <- snakemake@params[['treatment_conditions']]
-#control_condition     <- snakemake@params[['control_condition'   ]]
-#metadata_filename     <- snakemake@params[['metadata'            ]]
-#sample_ids            <- snakemake@params[['sample_ids'          ]]
-#gtf_database          <- snakemake@params[['database'            ]]
+#sample_ids            <- list.files('03_aligned/', full.names=FALSE) %>% .[str_ends(.,'star_aligned.bam')] %>% str_remove('.star_aligned.bam')
+#treatment_conditions  <- '{condition_1}'
+#control_condition     <- '{condition_2}'
+#metadata_filename     <- 'metadata.tsv'
+#gtf_database          <- 'ucsc'
 #
-#output_dir              <- snakemake@output[['plot_dir']]
-#output_signal           <- snakemake@output[['summary_file']]
+#output_dir            <- '04_peakcalling/analysis/plots/'
+#output_signal         <- '04_peakcalling/analysis/summary.txt'
 #
-#threads                 <- snakemake@threads
+#threads               <- 32
+
+condition_peaks <- snakemake@input[['condition_peaks']]
+diffbind_peaks  <- snakemake@input[['diffbind_peaks' ]]
+bam_files       <- snakemake@input[['bam_files'      ]]
+bam_index_files <- snakemake@input[['bam_index_files']]
+library_sizes   <- snakemake@input[['library_sizes'  ]]
+gtf_filename    <- snakemake@input[['gtf'            ]]
+
+treatment_conditions  <- snakemake@params[['treatment_conditions']]
+control_condition     <- snakemake@params[['control_condition'   ]]
+metadata_filename     <- snakemake@params[['metadata'            ]]
+sample_ids            <- snakemake@params[['sample_ids'          ]]
+gtf_database          <- snakemake@params[['database'            ]]
+
+output_dir              <- snakemake@output[['plot_dir']]
+output_signal           <- snakemake@output[['summary_file']]
+
+threads                 <- snakemake@threads
 
 write_tsv(data.frame(), output_signal)
 
@@ -175,170 +177,6 @@ peaks <- rbind( select(de_peaks  , any_of(colnames(m_peaks)))
               , select(cond_peaks, any_of(colnames(m_peaks)))
               , m_peaks )
 
-print('Loading simple track tools')
-
-tracks_create <- function(padding=0.1){
-	list(width=0, tracks=list(), track_guides=c(), padding=padding)
-}
-
-tracks_shade_bar <- function( obj=tracks_create(), df, group_column, direction, range ){
-	tab_height <- 0.1
-	groups     <- unique(df[,group_column])
-	group2num  <- set_names(seq_along(groups), groups)
-	num_groups <- length(groups)
-	shade_width <- tab_height*num_groups
-	
-	shade_index <- length(obj$tracks) + 1
-	base_y <- -obj$width - shade_width
-	  
-	df_plot <- df %>% 
-		mutate( group=df[[group_column]] ) %>% 
-		mutate( tab_top=map_dbl(group, ~base_y+tab_height*(group2num[[.x]]  ))
-		      , tab_bot=map_dbl(group, ~base_y+tab_height*(group2num[[.x]]-1)) ) %>% 
-		mutate( xmin=start, xmax=end, alpha=1.0/siblings ) %>%
-		mutate( alpha=ifelse(significant, alpha, alpha*0.25) ) %>% 
-		mutate( label = paste0( stat_type, ':', stat ) ) %>%
-		select( xmin, xmax, tab_top, tab_bot, group, alpha, label )
-	
-	obj$width <- obj$width + shade_width + obj$padding
-	obj$tracks <- append( obj$tracks, list(list( type='shade', df=df_plot, y_bot=min(df_plot$tab_bot), y_top=max(df_plot$tab_top), direction=direction, start_index=shade_index, range=range )) )
-	obj
-}
-
-tracks_pileup <- function( obj=tracks_create(), df, condition_column ){
-	base_y <- -obj$width - 1
-	plot_df <- df %>% 
-		mutate( xmin=pos-0.5, xmax=pos+0.5, ymin=base_y, ymax=base_y+normcount, condition=df[,condition_column], alpha=alpha ) %>% 
-		select( xmin, xmax, ymin, ymax, condition, alpha )
-	obj$width <- obj$width + 1 + obj$padding
-	obj$tracks <- append( obj$tracks, list(list( type='pileup', df=plot_df, y_bot=base_y-.1, y_top=base_y-.1+1 )) )
-	obj$track_guides <- c( obj$track_guides, base_y )
-	obj
-}
-
-tracks_annotation <- function( obj=tracks_create(), df ){
-	gene_height        <- 0.0125
-	exon_height        <- 0.05
-	tss_marker_height  <- 0.20
-	tss_marker_width   <- 0.05
-	label_height       <- 0.1
-	
-	box_height <- gene_height+2*exon_height + tss_marker_height + label_height + 0.1
-	
-	annotation_sep <- .01 *(max(df$end) - min(df$start))
-	
-	plot_df <- df %>% 
-		subset(type == 'gene') %>% 
-		mutate( tss1_xmin = ifelse( strand=='-', end -   annotation_sep, start                   )
-		       , tss1_xmax = ifelse( strand=='-', end                   , start +   annotation_sep)
-		       , tss2_xmin = ifelse( strand=='-', end - 3*annotation_sep, start                   )
-		       , tss2_xmax = ifelse( strand=='-', end                   , start + 3*annotation_sep)
-		       , width     = end - start
-		       , y_index   = 0 ) %>% 
-		arrange(desc(width))
-	
-	for( i in 1:nrow(plot_df) ){
-		element_to_place     <- plot_df[i, ]
-		placed_elements      <- slice_head( plot_df, n=i-1 )
-		overlapping_elements <- subset( placed_elements, (start <= element_to_place$end) & (end >= element_to_place$start) )
-		plot_df$y_index[i] <- min(setdiff(0:1+max(overlapping_elements$y_index,0), unique(overlapping_elements$y_index)))
-	}
-	
-	obj$width <- obj$width + (1+max(plot_df$y_index))*box_height + obj$padding
-	y_base <- -(obj$width - obj$padding)
-	
-	plot_df <- plot_df %>% 
-		mutate( y_bot = y_base + y_index*box_height + label_height ) %>% 
-		mutate( y_top = y_bot + gene_height ) %>% 
-		mutate( tss1_ymin = y_top 
-		      , tss1_ymax = y_top + tss_marker_height 
-		      , tss2_ymin = y_top + tss_marker_height - tss_marker_width
-		      , tss2_ymax = y_top + tss_marker_height
-		      , label_y   = y_bot - exon_height - label_height/2 )
-	
-	
-	df_exons <- df %>% 
-		subset(type == 'exon') %>% 
-		select(-type) %>% 
-		left_join(select(plot_df, gene_id, y_bot, y_top), by='gene_id')
-	
-	df_upper_exons <- df_exons %>% 
-		mutate( xmin=start, xmax=end, ymin=y_top, ymax=y_top+exon_height, alpha=1.0/num_siblings, colour=gene_biotype ) %>% 
-		select( xmin, xmax, ymin, ymax, alpha, colour )
-	
-	df_lower_exons <- df_exons %>%
-		subset( cannonical == TRUE ) %>% 
-		mutate( xmin=start, xmax=end, ymin=y_bot, ymax=y_bot-exon_height, alpha=1.0            , colour=gene_biotype ) %>% 
-		select( xmin, xmax, ymin, ymax, alpha, colour )
-	  
-	obj$tracks <- append( obj$tracks, list(list( type='annotation', df=plot_df, df_exons=rbind(df_upper_exons, df_lower_exons) )) )
-	obj
-}
-
-tracks_plot <- function( obj ){
-	# obj <- track
-	tracks <- obj$tracks
-	
-	bars <- keep(tracks, map_chr(tracks, ~.$type) == 'shade' ) %>% 
-		map_dfr(function(d){
-			df <- d$df
-			if( d$direction == 'down' ){
-				df$shade_top <- df$tab_bot
-				if( d$range > 0 ){
-					df$shade_bot <- tracks[[d$start_index + d$range]]$y_bot
-				}else{
-					df$shade_bot <- -obj$width
-				}
-			}else if( d$direction == 'up' ){
-				df$shade_bot <- df$tab_top
-				if( d$range > 0 ){
-					df$shade_top <- tracks[[d$start_index - d$range]]$y_top
-				}else{
-					df$shade_top <- 0
-				}
-			}
-			df
-		})
-	
-	pileups <- keep(tracks, map_chr(tracks, ~.$type) == 'pileup' ) %>% 
-		map(~.$df) %>% 
-		bind_rows()
-		
-	annotations <- keep(tracks, map_chr(tracks, ~.$type) == 'annotation' ) %>% 
-		map(~.$df) %>% 
-		bind_rows()
-	
-	exon_annotations <- keep(tracks, map_chr(tracks, ~.$type) == 'annotation' ) %>% 
-		map(~.$df_exons) %>% 
-		bind_rows()
-	
-	xmin <- min(pileups$xmin)
-	xmax <- max(pileups$xmax)
-	guides <- data.frame(x=xmin, xend=xmax, y=obj$track_guides, yend=obj$track_guides)
-	
-	p <- ggplot()
-	p <- p +
-		geom_rect(aes(xmin=xmin, xmax=xmax, ymin=shade_bot, ymax=shade_top, fill=group, alpha=0.1*alpha), show.legend=FALSE, data=bars) +
-		geom_rect(aes(xmin=xmin, xmax=xmax, ymin=tab_bot  , ymax=tab_top  , fill=group, alpha=1.0*alpha), show.legend=TRUE , data=bars)
-		#geom_text(aes(x=(xmin+xmax)/2, y=(tab_bot+tab_top)/2, label=label), colour='white'              , show.legend=FALSE, data=bars)
-	if( nrow(annotations) != 0 ){
-		p <- p +
-			geom_rect(aes(xmin=start    , xmax=end      , ymin=y_bot    , ymax=y_top    , fill=gene_biotype       ), data=annotations) +
-			geom_rect(aes(xmin=tss1_xmin, xmax=tss1_xmax, ymin=tss1_ymin, ymax=tss1_ymax, fill=gene_biotype       ), data=annotations) +
-			geom_rect(aes(xmin=tss2_xmin, xmax=tss2_xmax, ymin=tss2_ymin, ymax=tss2_ymax, fill=gene_biotype       ), data=annotations) +
-			geom_text(aes(x=(start+end)/2, y=label_y, label=label), data=annotations)
-	}
-	if( nrow(exon_annotations) != 0 ){
-		p <- p +
-			geom_rect(aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, fill=colour, alpha=alpha), data=exon_annotations) 
-	}
-	p <- p + 
-		geom_segment(aes(x  =xmin , xend=xmax, y   =y   , yend=y                                ), data=guides) +
-		geom_rect   (aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, fill=condition, alpha=alpha), data=pileups) #+
-		#geom_line   (aes(x  =(xmin+xmax)/2, y=ymax, group=condition, colour=condition, alpha=alpha), data=pileups)
-	p + khroma::scale_fill_muted() + theme_void()
-}
-
 print('Working out ranges to plot')
 search_width <- 10000
 search_peaks <- makeGRangesFromDataFrame( search_peaks, keep.extra.columns=TRUE )
@@ -380,7 +218,9 @@ for( i in seq_along(data_ranges) ){
 			sample_range_pileup <- sample_range_pileup %>% 
 				mutate(normcount=log1p(count)/max(log1p(count)))
 			
-			track <- tracks_create() 
+			colour_scheme1 <- khroma::colour('muted')(9)
+			colour_map <- c(pileup=colour_scheme1[[2]], prop=colour_scheme1[[1]], input=colour_scheme1[[3]], ip=colour_scheme1[[4]])
+			track <- tracks_create()
 
 			range_de_peaks <- GenomicRanges::pintersect(de_peaks_gr, range_plot, drop.nohit.ranges=TRUE) %>% 
 				as.data.frame() 
@@ -399,8 +239,8 @@ for( i in seq_along(data_ranges) ){
 				pi <- subset(sample_range_pileup, condition==c)
 			  
 				track <- track %>% 
-					tracks_pileup(    subset(pi, input == FALSE), condition_column='condition' ) %>% 
-					tracks_pileup(    subset(pi, input == TRUE ), condition_column='condition' )
+					tracks_pileup_shade(    subset(pi, input == FALSE), separation_variable='condition' ) %>% 
+					tracks_pileup_shade(    subset(pi, input == TRUE ), separation_variable='condition' )
 				if( nrow(pc) > 0 ){
 					track <- tracks_shade_bar( track, pc , group_column='method', direction='up', range=2 )
 				}
@@ -413,6 +253,9 @@ for( i in seq_along(data_ranges) ){
 			}
 			
 			p <- tracks_plot(track)
+			p <- p +
+				scale_fill_manual  (values=colour_map) +
+				scale_colour_manual(values=colour_map)
 			dir.create( output_dir, showWarnings=TRUE, recursive=TRUE )
 			save_name = paste0(output_dir, '/pileup_chr', as.character(seqnames(range_plot)), '.', start(range_plot), '-', end(range_plot), '.svg')
 			save_name = str_replace( save_name, 'chrchr', 'chr' )
