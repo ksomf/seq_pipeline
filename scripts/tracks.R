@@ -39,9 +39,9 @@ tracks_pileup_bar <- function( obj=tracks_create(), df, condition_column ){
 	obj
 }
 
-tracks_pileup_shade <- function( obj=tracks_create(), df, norm=set_names(1, 'condition'), separation_variable='condition', axis_label=NA, colour_is_group=F, colour='pileup', prop=tibble(site=0, prop=0, .rows=0), prop_min_width=0.001, prop_norm=1, prop_colour='prop', simplification_digits=2 ){
+tracks_pileup_shade <- function( obj=tracks_create(), df, norm=set_names(1, 'condition'), separation_variable='condition', position_variable='site', axis_label=NA, colour_is_group=F, colour='pileup', prop=tibble(site=0, prop=0, .rows=0), prop_min_width=0.001, prop_norm=1, prop_colour='prop', simplification_digits=2 ){
 	base_y <- -obj$width - 1
-	
+
 	hsignif <- function(x) signif( x, digits=simplification_digits )
 	# Perform simplification
 	if(!separation_variable %in% colnames(df)){
@@ -49,31 +49,35 @@ tracks_pileup_shade <- function( obj=tracks_create(), df, norm=set_names(1, 'con
 	}
 	if( nrow(df) != 0 ){
 		df <- df %>% 
-			select( any_of(separation_variable), site, min, q1, median, q3, max ) %>% 
+			select( any_of(separation_variable), all_of(position_variable), min, q1, median, q3, max ) %>% 
 			group_by_at(separation_variable) %>% 
 			group_modify(function(df, g){
-				df %>% mutate(across( any_of(c( 'min', 'q1', 'median', 'q3', 'max' )), ~./norm[[g[[separation_variable]]]] ))
+				df %>% mutate(across( any_of(c( 'min', 'q1', 'median', 'q3', 'max' )),  ~./norm[[g[[separation_variable]]]] ))
 			})
 	}
 	plot_df <- df %>% 
 		group_by_at(separation_variable) %>% 
-		arrange(site) %>%
+		arrange_at(position_variable) %>% 
 		mutate(redundant_site = ( (hsignif(c(NA, head(min   , n=-1)) + c(tail(min   , n=-1),NA) / 2) == hsignif(min   ))
 		                        & (hsignif(c(NA, head(q1    , n=-1)) + c(tail(q1    , n=-1),NA) / 2) == hsignif(q1    ))
 		                        & (hsignif(c(NA, head(median, n=-1)) + c(tail(median, n=-1),NA) / 2) == hsignif(median))
 		                        & (hsignif(c(NA, head(q3    , n=-1)) + c(tail(q3    , n=-1),NA) / 2) == hsignif(q3    ))
 		                        & (hsignif(c(NA, head(max   , n=-1)) + c(tail(max   , n=-1),NA) / 2) == hsignif(max   )) )) %>% 
 		filter(!redundant_site) %>% 
-		mutate( x=site, y=base_y+median, ymin1=base_y+q1, ymax1=base_y+q3, ymin2=base_y+min, ymax2=base_y+max, colour=colour, alpha=ifelse(max==0 & c(tail(max, n=-1),NA)==0, 0, 1) ) %>% 
+		mutate( y=base_y+median, ymin1=base_y+q1, ymax1=base_y+q3, ymin2=base_y+min, ymax2=base_y+max, colour=colour, alpha=ifelse(max==0 & c(tail(max, n=-1),NA)==0, 0, 1) ) %>% 
 		rename( group=separation_variable ) %>% 
-		select( group, x, y, ymin1, ymax1, ymin2, ymax2, colour, alpha )
+		select( group, y, ymin1, ymax1, ymin2, ymax2, colour, alpha, any_of(position_variable) )
+	plot_df['x'] <- plot_df[position_variable]
 	if(colour_is_group){
 		plot_df$colour <- plot_df$group
 	}
 	
 	prop_df <- prop %>% 
 		mutate( colour=prop_colour ) %>% 
-		mutate( x=site, ymin=base_y, ymax=base_y+prop/prop_norm )
+		mutate( ymin=base_y, ymax=base_y+prop/prop_norm )
+	if( nrow(prop_df) != 0 ){
+		prop_df['x'] <- prop_df[position_variable]
+	}
 	prop_label <- paste0( round(prop_norm*100), '%' )
 	
 	obj$width <- obj$width + 1 + obj$padding

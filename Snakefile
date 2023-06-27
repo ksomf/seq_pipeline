@@ -101,7 +101,9 @@ if config['pipeline'] == 'bulk':
 
 elif config['pipeline'] == 'ripseq':
 	print('Running Rip Seq Pipeline')
-	config['treatment_conditions'] = set(conditions) - set(config['control_condition'])
+	config['treatment_conditions'] = list(set(conditions) - set([config['control_condition']]))
+	print(f'control_condition={config["control_condition"]}')
+	print(f'treatment_conditions={config["treatment_conditions"]}')
 	ip_sample_id2input_sample_id = dict(filter(lambda xs: xs[0] != xs[1], zip(metadata['sample_id'],metadata['matching_input_control'])))
 	metadata_ip_only    = metadata[ metadata['method']=='IP' ]
 	metadata_input_only = metadata[ metadata['method']=='Input' ]

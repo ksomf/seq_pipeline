@@ -32,6 +32,7 @@ LERP <- function(y1, y2, x){y1 + (y2-y1)*x}
 
 condition_peaks <- snakemake@input[['condition_peaks']]
 diffbind_peaks  <- snakemake@input[['diffbind_peaks' ]]
+manual_peaks    <- snakemake@input[['manual_peaks'   ]]
 bam_files       <- snakemake@input[['bam_files'      ]]
 bam_index_files <- snakemake@input[['bam_index_files']]
 library_sizes   <- snakemake@input[['library_sizes'  ]]
@@ -212,14 +213,19 @@ for( i in seq_along(data_ranges) ){
 			pileup( bam_files[i], index=bam_index_files[i], scanBamParam=scan_params, pileupParam=pileup_params ) %>%
 				select(-which_label) %>% 
 				mutate( base=offset, sample=sample_id, condition=condition, input=input, libsize_factor=libsize_factor, alpha=1.0/condition_count ) %>% 
-				mutate(count = count / libsize_factor)
+				mutate(count = count / libsize_factor) %>% 
+				group_by( condition, input, pos ) %>% 
+				summarise( min=min(count), max=max(count), median=median(count), q1=quantile(count, .25), q3=quantile(count, .75), mean=mean(count), std=sd(count), .groups='drop' )
 		})
 		if( length( sample_range_pileup )){
-			sample_range_pileup <- sample_range_pileup %>% 
-				mutate(normcount=log1p(count)/max(log1p(count)))
-			
+			norm <- sample_range_pileup %>% 
+				group_by(input) %>% 
+				slice_max(max, n=1, with_ties=F) %>% 
+				ungroup() %>% 
+				select(input, max) %>% 
+				deframe()
 			colour_scheme1 <- khroma::colour('muted')(9)
-			colour_map <- c(pileup=colour_scheme1[[2]], prop=colour_scheme1[[1]], input=colour_scheme1[[3]], ip=colour_scheme1[[4]])
+			colour_map <- c(idr=colour_scheme1[[2]], deq=colour_scheme1[[1]], input=colour_scheme1[[3]], ip=colour_scheme1[[4]])
 			track <- tracks_create()
 
 			range_de_peaks <- GenomicRanges::pintersect(de_peaks_gr, range_plot, drop.nohit.ranges=TRUE) %>% 
@@ -236,11 +242,22 @@ for( i in seq_along(data_ranges) ){
 				as.data.frame()
 			for( c in ordered_conditions ){
 				pc <- subset(range_cond_peaks   , condition==c)
-				pi <- subset(sample_range_pileup, condition==c)
+				pi <- subset(sample_range_pileup, condition==c) %>% 
+					mutate(input_var=ifelse(input, 'input', 'ip'))
+				
+				norm <- set_names(norm, c('ip', 'input'))
+				
+				pi_ip <- pi %>% 
+					subset(input == FALSE) %>% 
+					mutate(across(all_of(c('min', 'max', 'median', 'q1', 'q3', 'mean')), ~./norm[['ip']]))
 			  
+				pi_input <- pi %>% 
+					subset(input == TRUE) %>% 
+					mutate(across(all_of(c('min', 'max', 'median', 'q1', 'q3', 'mean')), ~./norm[['input']]))
+				
 				track <- track %>% 
-					tracks_pileup_shade(    subset(pi, input == FALSE), separation_variable='condition' ) %>% 
-					tracks_pileup_shade(    subset(pi, input == TRUE ), separation_variable='condition' )
+					tracks_pileup_shade( pi_ip   , separation_variable='input_var', position_variable='pos', norm=norm['ip']   , colour='ip'   , axis_label=c ) %>% 
+					tracks_pileup_shade( pi_input, separation_variable='input_var', position_variable='pos', norm=norm['input'], colour='input'  )
 				if( nrow(pc) > 0 ){
 					track <- tracks_shade_bar( track, pc , group_column='method', direction='up', range=2 )
 				}
@@ -259,8 +276,9 @@ for( i in seq_along(data_ranges) ){
 			dir.create( output_dir, showWarnings=TRUE, recursive=TRUE )
 			save_name = paste0(output_dir, '/pileup_chr', as.character(seqnames(range_plot)), '.', start(range_plot), '-', end(range_plot), '.svg')
 			save_name = str_replace( save_name, 'chrchr', 'chr' )
-			ggsave(save_name, plot=p, width=24, height=8)
 			print(save_name)
+			ggsave(save_name, plot=p, width=24, height=8)
+			ggsave(str_replace(save_name, '.svg', '.png'), plot=p, width=24, height=8)
 			as.data.frame(displayed_peaks) %>% write_tsv(str_replace( save_name, '.svg', '.tsv' ))
 			
 			#pmap(list(range_gtf_genes$start, range_gtf_genes$end, ifelse(range_gtf_genes$name=='', range_gtf_genes$parent_gene, range_gtf_genes$name)), function(start, end, name){

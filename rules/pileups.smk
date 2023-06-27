@@ -25,16 +25,16 @@ rule join_peakcall_data:
 rule join_diffbind_data:
 	input:
 		pepr_peaks     = rules.pepr2tsv.output.diffbind_peaks.replace('.unnamed.tsv','.tsv'),
-		thor_peaks     = rules.thor2tsv.output.diffbind_peaks.replace('.unnamed.tsv','.tsv'),
+		#thor_peaks     = rules.thor2tsv.output.diffbind_peaks.replace('.unnamed.tsv','.tsv'),
 		deq_peaks      = rules.deq2tsv .output.diffbind_peaks,
 		#diffbind_peaks = rules.diffbind2tsv.output.diffbind_peaks.replace('.unnamed.tsv','.tsv'),
 	output:
 		diffbind_peaks = os.path.join(config['peakcalling_dir'],'analysis','diffbind_peaks.tsv'),
 	run:
 		df_pepr = pd.read_csv( input.pepr_peaks, sep='\t' )
-		df_thor = pd.read_csv( input.thor_peaks, sep='\t' )
+		#df_thor = pd.read_csv( input.thor_peaks, sep='\t' )
 		df_deq  = pd.read_csv( input.deq_peaks , sep='\t' )
-		res = pd.concat([ df_pepr, df_thor, df_deq ])
+		res = pd.concat([ df_pepr, df_deq ]) #, df_thor
 		res.to_csv( output.diffbind_peaks, sep='\t', index=False )
 
 rule generate_manual_data:
@@ -88,5 +88,6 @@ rule plot_pileups:
 		control_condition    = config['control_condition'],
 		metadata             = config['metadata'],
 		sample_ids           = sample_ids,
+		database         = config['database'],
 	conda: '../envs/pileups.yml'
 	script: '../scripts/pileups.R'
