@@ -171,7 +171,7 @@ rule bullseye_homer_analysis:
 		ctrl_fa      = lambda wildcards: temp(local(os.path.join(config["stamp_dir"], wildcards.named_comparison + '_ctrl.fa'))),
 	output:
 		homer        = os.path.join(config["stamp_dir"], 'complex_condition_{named_comparison}_homer.txt'),
-	threads: 32
+	threads: 1
 	conda: '../envs/homer.yml'
 	shell:
 		'''

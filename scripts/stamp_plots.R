@@ -272,7 +272,7 @@ for( i in 1:length(gene_list) ){
 	save_name <- paste0( output_dir, '/', gene_chrom, '.', gene_min_site, '-', gene_max_site, '_', gene_label, '.svg' )
 	dir.create( output_dir, showWarnings=FALSE, recursive=TRUE )
 	ggsave( save_name, plot=p, width=24, height=8 )
-	ggsave( str_replace(save_name, '.svg', 'png'), plot=p, width=24, height=8 )
+	ggsave( str_replace(save_name, '.svg', '.png'), plot=p, width=24, height=8 )
 	write_tsv( gene_bullseye, str_replace( save_name, '.svg', '.tsv' ) )
 }
 
