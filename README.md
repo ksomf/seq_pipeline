@@ -82,39 +82,41 @@ The config file requires the following terms in `config.yml`:
 
 See [parameter_templates/stamp_config.yml](https://github.com/ksomf/seq_pipeline/blob/main/parameter_templates/stampeq_config.yml) and [parameter_templates/stamp_metadata.tsv](https://github.com/ksomf/seq_pipeline/blob/main/parameter_templates/stamp_metadata.tsv) for an example template
 
-## Method section stub
+## Dependencies
 
-The [Yet Another Sequencing Chewer (YASC) pipeline](https://github.com/ksomf/seq_pipeline) was run for (bulk/ripseq/stamp). 
+These will be downloaded automatically by the pipeline when running using conda.
 
-Briefly it is a [snakemake](https://doi.org/10.12688/f1000research.29032.1) pipeline build on [samtools](), [bedtools](), [pybedtools]()
+#### Base
 
-If using srr files: SRR files were downloaded using [sra-tools]() and extracted using [parallel-fastq-dump]().
-If Trimming: The fastq files were trimmed using [cutadapt]() with `add_adapters_here`,
+- [snakemake](https://doi.org/10.12688/f1000research.29032.1)
+- [sra-tools](https://github.com/ncbi/sra-tools)
+- [parallel-fastq-dump](https://github.com/rvalieris/parallel-fastq-dump)
+- [samtools](https://doi.org/10.1093/gigascience/giab008)
+- [bedtools](http://bioinformatics.oxfordjournals.org/content/26/6/841.short
+- [pybedtools](http://bioinformatics.oxfordjournals.org/content/27/24/3423)
+- [tidyverse](doi:10.21105/joss.01686)
+- [pandas](https://doi.org/10.5281/zenodo.3509134)
+- [STAR](https://www.ncbi.nlm.nih.gov/pubmed/23104886)
+- bowtie2
+- cutadapt
+- [fastqc](http://www.bioinformatics.babraham.ac.uk/projects/fastqc/)
+- [multiqc](10.1093/bioinformatics/btw354)
+- [biomaRt](10.18129/B9.bioc.biomaRt)
+- [GenomicRanges](10.18129/B9.bioc.GenomicRanges)
+- [Rsamtools](https://bioconductor.org/packages/Rsamtools)
+- [rtracklayer](doi:10.1093/bioinformatics/btp328)
+- [ggseqlogo](https://doi.org/10.1093/bioinformatics/btx469)
 
-The sequences were aligned using [STAR]() or [bowtie2]() against `insert_genome` and filtered using samtools.
+#### STAMP
 
-### Pipelines
-#### Bulk
-
-Count matrix was produced using (subread)[]
+- [BULLSEYE](https://doi.org/10.1016/j.molcel.2021.12.038)
 
 #### Ripseq
 
-Peakcalling was performed using (MACS2)[]. Three in conditin peak finders were used: (IDR)[], (piranha)[], and (genrich)[]. Three differential peak callers were used: (DEQ)[], (THOR)[], and (PePr)[].
-
-#### Stamp
-
-Bam files were processed using the [bullseye]() pipeline: first bam files where parsed using `parseBAM.pl`, edit sites were found using `Find_edit_site.pl` before treatment conditions where compared to covariates using `summarise_sites.pl`. Bullseye was run both at standard settings and at relaxed settings, the latter was examined to find genes with multiple edits. Motif analysis was performed using [homer]()
-
-- Seqlogos were generated from reference exons with edit sites using [ggseqlogo]()
-
-### Continuing
-
-QC was performed using [fastqc]() and [multiqc]()
-Downstream analysis was performed using [tidyverse](), [pandas](), [biomaRt]()
-
-- TODO for both ripseq and stamp: [GenomicRanges](), [Rsamtools](), [rtracklayer]()
-
-### Citations
-
-- Snakemake: [Mölder, F., Jablonski, K.P., Letcher, B., Hall, M.B., Tomkins-Tinch, C.H., Sochat, V., Forster, J., Lee, S., Twardziok, S.O., Kanitz, A., Wilm, A., Holtgrewe, M., Rahmann, S., Nahnsen, S., Köster, J., 2021. Sustainable data analysis with Snakemake. F1000Res 10, 33.](https://doi.org/10.12688/f1000research.29032.1)
+- [MACS2](https://doi.org/10.1186/gb-2008-9-9-r137)
+- [IDR](https://www.jstor.org/stable/23069353)
+- [piranha](https://doi.org/10.1093%2Fbioinformatics%2Fbts569)
+- [genrich](https://github.com/jsh58/Genrich)
+- [THOR](https://doi.org/10.1186/s12859-023-05184-5)
+- [PePr](https://doi.org/10.1093/bioinformatics/btu372)
+- [DEQ](https://doi.org/10.1038/s41598-020-63355-3) modified to run on more modern versions of R
